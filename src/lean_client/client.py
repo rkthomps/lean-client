@@ -627,6 +627,13 @@ class LeanClient:
     def is_open(self, uri: str) -> bool:
         return uri in self.managed_files
 
+    def file_version(self, uri: str) -> int:
+        """
+        Returns the current version of the file.
+        """
+        assert uri in self.managed_files, f"File {uri} is not open."
+        return self.managed_files[uri]
+
     def change_file(self, uri: str, new_text: str) -> int:
         """
         Updates the file for the lsp and returns the new version number.
