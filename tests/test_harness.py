@@ -65,7 +65,7 @@ def test_proof_bat_result(build_projects: Optional[BuildError]) -> None:
     proof_trivial = " := by trivial"
 
     proof_omega = """ := by
-      simp
+      omega
     """
     proof_omega = textwrap.dedent(proof_omega)
 
@@ -74,8 +74,13 @@ def test_proof_bat_result(build_projects: Optional[BuildError]) -> None:
         relfile=Path("LeanInstrProj/Harness.lean"),
         theorem_name="Cat.bat",
     ) as harness:
+        print("harness initialized")
         result_trivial = harness.check_proof(proof_trivial)
         assert isinstance(result_trivial, ProofFailedResult)
+        error_messages = [
+            d.message for d in result_trivial.diagnostics if d.severity == 1
+        ]
+        assert len(error_messages) > 0
 
         result_omega = harness.check_proof(proof_omega)
         assert isinstance(result_omega, ProofSucceededResult)

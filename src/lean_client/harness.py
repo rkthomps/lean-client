@@ -171,4 +171,4 @@ class Harness:
         traceback: Optional[types.TracebackType],
     ) -> Optional[bool]:
         self.client.shutdown()
-        return True
+        return None

@@ -33,3 +33,8 @@ with Harness(
     result_trivial = harness.check_proof(" := by trivial")
     assert isinstance(result_trivial, ProofSucceededResult)
 ```
+
+## Running the tests
+1. You must have `lean` installed. 
+2. `uv sync --dev`
+3. `pytest`
