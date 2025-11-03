@@ -1,0 +1,10 @@
+name = "lean-no-instr-proj"
+version = "0.1.0"
+defaultTargets = ["lean-no-instr-proj"]
+
+[[lean_lib]]
+name = "LeanNoInstrProj"
+
+[[lean_exe]]
+name = "lean-no-instr-proj"
+root = "Main"

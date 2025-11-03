@@ -1,0 +1,15 @@
+name = "lean-instr-proj"
+version = "0.1.0"
+defaultTargets = ["lean-instr-proj"]
+
+[[lean_lib]]
+name = "LeanInstrProj"
+
+[[lean_exe]]
+name = "lean-instr-proj"
+root = "Main"
+
+[[require]]
+name = "llm-instruments"
+git = "https://github.com/rkthomps/llm-instruments"
+rev = "main"

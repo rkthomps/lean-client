@@ -1,0 +1,15 @@
+{"version": "1.1.0",
+ "packagesDir": ".lake/packages",
+ "packages":
+ [{"url": "https://github.com/rkthomps/llm-instruments",
+   "type": "git",
+   "subDir": null,
+   "scope": "",
+   "rev": "d1d045f6740849155aaaec93988299ce30d9835e",
+   "name": "«llm-instruments»",
+   "manifestFile": "lake-manifest.json",
+   "inputRev": "main",
+   "inherited": false,
+   "configFile": "lakefile.lean"}],
+ "name": "«lean-instr-proj»",
+ "lakeDir": ".lake"}
