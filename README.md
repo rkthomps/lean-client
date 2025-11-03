@@ -3,6 +3,14 @@
 This client is a useful way to extract information from the  
 Lean language server. 
 
+## Partner Lean Package
+To use this package for any Lean project, you need to install 
+the instrumentation package in the Lean project:
+https://github.com/rkthomps/llm-instruments.
+In the future this may not be necessary, but this offers more flexibility in what information we can get from Lean.
+
+
+
 ## Proof Checking Harness 
 Most usefully, this package contains a harness for checking proofs for  
 a theorem and returning errors/diagnostics.  
