@@ -12,12 +12,13 @@ from pathlib import Path
 import subprocess
 
 from dataclasses import dataclass
+from dataclasses_json import DataClassJsonMixin
 
 from lean_client.client import Range, LeanClient
 
 
 @dataclass
-class TheoremInfo:
+class TheoremInfo(DataClassJsonMixin):
     name: str
     range: Range
     sig_range: Range
