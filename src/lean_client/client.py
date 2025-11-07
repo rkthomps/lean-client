@@ -595,6 +595,7 @@ def read_lsp_message_header(stream: IO[bytes]) -> int:
 class LeanClient:
     def __init__(self, workspace: Optional[Path]):
         copy_env = os.environ.copy()
+        work_dir = workspace if workspace is not None else Path.cwd().resolve()
         self.process = subprocess.Popen(
             # ["elan", "run", toolchain, "lean", "--server"],
             ["lean", "--server"],
@@ -606,6 +607,7 @@ class LeanClient:
             text=False,
             bufsize=0,
             env=copy_env,
+            cwd=work_dir,
         )
         self.process.stdout
         self.request_id = 0

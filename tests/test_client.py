@@ -2,9 +2,12 @@ from dataclasses import dataclass
 from pathlib import Path
 import textwrap
 from typing import Any
+from tests.util import INSTR_PROJ_LOC
 
 from lean_client.client import (
     LeanClient,
+    WaitForDiagnosticsRequest,
+    WaitForDiagnosticsResponse,
     DocumentSymbolRequest,
     DocumentSymbolResponse,
 )
@@ -68,28 +71,21 @@ def test_document_symbol_request():
         # assert response.symbols[1].name == "bar"
 
 
-# def test_large_file():
-#     """
-#     There was an issue where the client wouldn't read all of the
-#     content in one call.
-#     """
-#     NUM_THMS = 200
-#     large_file = "\n\n".join(
-#         [f"theorem foo{i} : False := by sorry" for i in range(NUM_THMS)]
-#     )
-#     with DummyClient() as dc:
-#         dc.client.open_file(dc.dummy_uri, large_file)
-#         request = DocumentSymbolRequest(uri=dc.dummy_uri)
-#         response = dc.client.send_request(request)
-#         assert isinstance(response, DocumentSymbolResponse)
-#         diags = get_per_theorem_diagnostics(
-#             dc.client, dc.dummy_uri, large_file, None
-#         )
-#         assert len(diags) == NUM_THMS
-#         for _, diags in diags.items():
-#             sorry_diags = [
-#                 d
-#                 for d in diags.diagnostics
-#                 if d.severity == 2 and "sorry" in d.message
-#             ]
-#             assert len(sorry_diags) == 1
+def test_batteries_document_symbol_request():
+    uri = INSTR_PROJ_LOC.resolve().as_uri()
+    client = LeanClient.start(INSTR_PROJ_LOC)
+    file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
+    file_uri = file.resolve().as_uri()
+    try:
+        client.open_file(file_uri, file.read_text())
+        wait_request = WaitForDiagnosticsRequest(
+            uri=file_uri, version=client.file_version(file_uri)
+        )
+        wait_response = client.send_request(wait_request)
+        assert isinstance(wait_response, WaitForDiagnosticsResponse)
+        request = DocumentSymbolRequest(uri=file_uri)
+        response = client.send_request(request)
+        assert isinstance(response, DocumentSymbolResponse)
+        assert len(response.symbols) > 0
+    finally:
+        client.shutdown()

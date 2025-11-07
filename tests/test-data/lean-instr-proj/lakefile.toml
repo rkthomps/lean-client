@@ -13,3 +13,8 @@ root = "Main"
 name = "llm-instruments"
 git = "https://github.com/rkthomps/llm-instruments"
 rev = "main"
+
+[[require]]
+name = "batteries"
+git = "https://github.com/leanprover-community/batteries"
+rev = "main"
