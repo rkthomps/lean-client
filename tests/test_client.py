@@ -21,7 +21,11 @@ def bar : Nat := 0
 @dataclass
 class DummyClient:
     def __init__(self):
-        self.client = LeanClient.start(self.root_uri)
+        self.client = LeanClient.start(self.workspace)
+
+    @property
+    def workspace(self) -> Path:
+        return Path.cwd().resolve()
 
     @property
     def root_uri(self) -> str:

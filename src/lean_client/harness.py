@@ -99,7 +99,7 @@ class Harness:
 
         self.theorem_info = matching_infos[0]
 
-        self.client = LeanClient.start(self.workspace_uri)
+        self.client = LeanClient.start(self.workspace)
         self.client.open_file(self.file_uri, self.orig_file_contents)
 
     @property

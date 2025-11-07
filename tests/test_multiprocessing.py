@@ -13,7 +13,7 @@ def test_parallel_clients() -> None:
     file = "LeanInstrProj/TheoremRanges.lean"
     file_uri = (INSTR_PROJ_LOC / file).resolve().as_uri()
     file_contents = (INSTR_PROJ_LOC / file).read_text()
-    clients = [LeanClient.start(uri) for _ in range(NUM_CLIENTS)]
+    clients = [LeanClient.start(INSTR_PROJ_LOC) for _ in range(NUM_CLIENTS)]
     for client in clients:
         client.open_file(file_uri, file_contents)
         request = WaitForDiagnosticsRequest(

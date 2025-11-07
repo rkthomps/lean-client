@@ -593,7 +593,7 @@ def read_lsp_message_header(stream: IO[bytes]) -> int:
 
 
 class LeanClient:
-    def __init__(self):
+    def __init__(self, workspace: Optional[Path]):
         copy_env = os.environ.copy()
         self.process = subprocess.Popen(
             # ["elan", "run", toolchain, "lean", "--server"],
@@ -796,10 +796,11 @@ class LeanClient:
         return response_data
 
     @classmethod
-    def start(cls, root_uri: str) -> "LeanClient":
-        client = cls()
+    def start(cls, workspace: Path) -> "LeanClient":
+        client = cls(workspace)
         logging.debug("Starting Lean client...")
-        client.send_request(InitializeRequest(root_uri))
+        workspace_uri = workspace.resolve().as_uri()
+        client.send_request(InitializeRequest(workspace_uri))
         logging.debug("Sent initialize request.")
         time.sleep(0.5)
         client.send_notification(InitializedNotification())
