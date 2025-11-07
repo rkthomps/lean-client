@@ -126,13 +126,16 @@ class Harness:
         prefix = get_range_str(self.orig_file_contents, prefix_range)
         return prefix
 
-    def check_proof(self, proof: str) -> ProofSucceededResult | ProofFailedResult:
+    def check_proof(
+        self, proof: str, timeout: float = 10.0
+    ) -> ProofSucceededResult | ProofFailedResult:
         new_file_contents = self.get_file_prefix() + proof
         self.client.change_file(self.file_uri, new_file_contents)
         wait_response = self.client.send_request(
             WaitForDiagnosticsRequest(
                 uri=self.file_uri, version=self.client.managed_files[self.file_uri]
-            )
+            ),
+            timeout,
         )
         assert isinstance(wait_response, WaitForDiagnosticsResponse)
         diagnostics = self.client.latest_diagnostics[self.file_uri].diagnostics
