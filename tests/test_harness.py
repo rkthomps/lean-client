@@ -38,6 +38,8 @@ def test_proof_foo_result(build_projects: Optional[BuildError]) -> None:
         relfile=Path("LeanInstrProj/Harness.lean"),
         theorem_name="foo",
     ) as harness:
+        assert harness.orig_file_contents.endswith("theorem foo : True := by sorry\n")
+
         result_trivial = harness.check_proof(proof_trivial)
         assert isinstance(result_trivial, ProofSucceededResult)
 

@@ -65,7 +65,11 @@ class Harness:
         assert (workspace / relfile).exists()
         self.workspace = workspace.resolve()
         self.relfile = relfile
-        self.orig_file_contents = self.file.read_text()
+
+        if clear_file_proofs:
+            raise NotImplementedError(
+                "Clearing all proofs in the file is not yet implemented."
+            )
 
         self.theorem_name = theorem_name
 
@@ -99,6 +103,17 @@ class Harness:
 
         self.theorem_info = matching_infos[0]
 
+        # Simply
+        orig_file_contents = self.file.read_text()
+        if clear_proof:
+            self.orig_file_contents = (
+                self.get_prefix_core(orig_file_contents) + ":= by sorry\n"
+            )
+        else:
+            raise NotImplementedError(
+                "Not yet implemented: keeping the original proof."
+            )
+
         self.client = LeanClient.start(self.workspace)
         self.client.open_file(self.file_uri, self.orig_file_contents)
 
@@ -114,17 +129,20 @@ class Harness:
     def file_uri(self) -> str:
         return (self.workspace / self.relfile).resolve().as_uri()
 
+    def get_prefix_core(self, contents: str) -> str:
+        prefix_range = Range(
+            start=Position(line=0, character=0),
+            end=self.theorem_info.val_range.start,
+        )
+        prefix = get_range_str(contents, prefix_range)
+        return prefix
+
     def get_file_prefix(self) -> str:
         """
         Get the preifx of the file, including the theorem statement, up to
         the start of the proof.
         """
-        prefix_range = Range(
-            start=Position(line=0, character=0),
-            end=self.theorem_info.val_range.start,
-        )
-        prefix = get_range_str(self.orig_file_contents, prefix_range)
-        return prefix
+        return self.get_prefix_core(self.orig_file_contents)
 
     def check_proof(
         self, proof: str, timeout: float = 10.0
