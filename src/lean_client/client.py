@@ -596,13 +596,16 @@ class LeanClient:
     def __init__(self, workspace: Optional[Path]):
         copy_env = os.environ.copy()
         work_dir = workspace if workspace is not None else Path.cwd().resolve()
+        if (work_dir / "lakefile.lean").exists() or (
+            work_dir / "lakefile.toml"
+        ).exists():
+            command = ["lake", "serve"]
+        else:
+            command = ["lean", "--server"]
         self.process = subprocess.Popen(
-            # ["elan", "run", toolchain, "lean", "--server"],
-            ["lean", "--server"],
-            # SERVER_EXECUTABLE,
+            command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            # stderr=subprocess.PIPE,
             stderr=sys.stderr,
             text=False,
             bufsize=0,
