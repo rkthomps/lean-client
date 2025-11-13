@@ -6,6 +6,7 @@ import types
 from typing import Optional
 
 import logging
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,9 @@ class ProofSucceededResult:
 @dataclass
 class ProofFailedResult:
     diagnostics: list[Diagnostic]
+
+
+STARTUP_LOCK = threading.Semaphore(4)
 
 
 class Harness:
@@ -74,48 +78,55 @@ class Harness:
         self.theorem_name = theorem_name
 
         logger.info(f"Checking that workspace {self.workspace} supports instruments...")
-        heartbeat = HeartbeatCommand(workspace=self.workspace)
-        if heartbeat.run():
-            logger.info(
-                f"Finding theorem info for {theorem_name} in file {self.file}..."
-            )
-            info_command = TheoremInfoCommand(
-                workspace=self.workspace, rel_filepath=self.relfile
-            )
-            theorem_infos = info_command.run()
-            if isinstance(theorem_infos, CommandError):
-                raise RuntimeError(
-                    f"Failed to get theorem info for {theorem_name} in file {self.file}: {theorem_infos}"
+        with STARTUP_LOCK:
+            heartbeat = HeartbeatCommand(workspace=self.workspace)
+            if heartbeat.run():
+                logger.info(
+                    f"Finding theorem info for {theorem_name} in file {self.file}..."
                 )
-            matching_infos = [
-                ti for ti in theorem_infos if ti.name == self.theorem_name
-            ]
-            if len(matching_infos) != 1:
-                raise RuntimeError(
-                    f"Expected exactly one theorem info for {theorem_name} in file {self.file}, but found {len(matching_infos)}"
+                info_command = TheoremInfoCommand(
+                    workspace=self.workspace, rel_filepath=self.relfile
                 )
-        else:
-            raise RuntimeError(
-                f"Workspace {self.workspace} currently does not support instruments. "
-                f"In the future, we could have partial support for non-instrumented projects."
-                f"For now please make sure to install https://github.com/rkthomps/llm-instruments"
-            )
+                theorem_infos = info_command.run()
+                if isinstance(theorem_infos, CommandError):
+                    raise RuntimeError(
+                        f"Failed to get theorem info for {theorem_name} in file {self.file}: {theorem_infos}"
+                    )
+                matching_infos = [
+                    ti for ti in theorem_infos if ti.name == self.theorem_name
+                ]
+                if len(matching_infos) != 1:
+                    raise RuntimeError(
+                        f"Expected exactly one theorem info for {theorem_name} in file {self.file}, but found {len(matching_infos)}"
+                    )
+            else:
+                raise RuntimeError(
+                    f"Workspace {self.workspace} currently does not support instruments. "
+                    f"In the future, we could have partial support for non-instrumented projects."
+                    f"For now please make sure to install https://github.com/rkthomps/llm-instruments"
+                )
 
-        self.theorem_info = matching_infos[0]
+            self.theorem_info = matching_infos[0]
 
-        # Simply
-        orig_file_contents = self.file.read_text()
-        if clear_proof:
-            self.orig_file_contents = (
-                self.get_prefix_core(orig_file_contents) + ":= by sorry\n"
-            )
-        else:
-            raise NotImplementedError(
-                "Not yet implemented: keeping the original proof."
-            )
+            # Simply
+            orig_file_contents = self.file.read_text()
+            if clear_proof:
+                self.orig_file_contents = (
+                    self.get_prefix_core(orig_file_contents) + ":= by sorry\n"
+                )
+            else:
+                raise NotImplementedError(
+                    "Not yet implemented: keeping the original proof."
+                )
 
-        self.client = LeanClient.start(self.workspace)
-        self.client.open_file(self.file_uri, self.orig_file_contents)
+            self.client = LeanClient.start(self.workspace)
+            self.client.open_file(self.file_uri, self.orig_file_contents)
+            response = self.client.send_request(
+                WaitForDiagnosticsRequest(
+                    uri=self.file_uri, version=self.client.file_version(self.file_uri)
+                ),
+            )
+            assert isinstance(response, WaitForDiagnosticsResponse)
 
     @property
     def file(self) -> Path:
