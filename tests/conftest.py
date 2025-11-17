@@ -23,7 +23,9 @@ def build_projects(lake_available: bool) -> None | BuildError:
             INSTR_PROJ_LOC,
             NO_INSTR_PROJ_LOC,
         ]:
-            update_result = subprocess.run(["lake", "update"], cwd=proj)
+            update_result = subprocess.run(
+                ["lake", "update", "«llm-instruments»"], cwd=proj
+            )
             if update_result.returncode != 0:
                 return BuildError(f"Failed to update Lake dependencies in {proj}")
 

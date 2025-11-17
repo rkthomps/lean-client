@@ -86,3 +86,6 @@ def test_proof_bat_result(build_projects: Optional[BuildError]) -> None:
 
         result_omega = harness.check_proof(proof_omega)
         assert isinstance(result_omega, ProofSucceededResult)
+        assert (
+            harness.get_theorem_signature() == "theorem bat (a b : Nat) : a + b = b + a"
+        )
