@@ -2,10 +2,31 @@ from typing import Optional
 import pytest
 import textwrap
 from pathlib import Path
+from pydantic import BaseModel
 
 from lean_client.harness import Harness, ProofSucceededResult, ProofFailedResult
 
 from tests.util import INSTR_PROJ_LOC, NO_INSTR_PROJ_LOC, BuildError
+
+
+class Foo(BaseModel):
+    result: ProofSucceededResult | ProofFailedResult
+
+
+def test_serialize_proof_result() -> None:
+    result = Foo(result=ProofFailedResult(diagnostics=[]))
+    as_json = result.model_dump_json()
+    print(as_json)
+    parsed_result = Foo.model_validate_json(as_json)
+    assert isinstance(parsed_result, Foo)
+    assert isinstance(parsed_result.result, ProofFailedResult)
+
+    result2 = Foo(result=ProofSucceededResult())
+    as_json2 = result2.model_dump_json()
+    print(as_json2)
+    parsed_result2 = Foo.model_validate_json(as_json2)
+    assert isinstance(parsed_result2, Foo)
+    assert isinstance(parsed_result2.result, ProofSucceededResult)
 
 
 def test_proof_foo_result(build_projects: Optional[BuildError]) -> None:

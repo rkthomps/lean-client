@@ -7,18 +7,17 @@ import sys
 import time
 import json
 import select
-from dataclasses import dataclass
-from dataclasses_json import DataClassJsonMixin
 
 import subprocess
 import threading
 import logging
 
+from pydantic import BaseModel
+
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, eq=True)
-class Position:
+class Position(BaseModel):
     line: int
     character: int
 
@@ -54,8 +53,7 @@ class Position:
         )
 
 
-@dataclass(frozen=True)
-class Range(DataClassJsonMixin):
+class Range(BaseModel):
     start: Position
     end: Position
 
@@ -115,8 +113,7 @@ class Range(DataClassJsonMixin):
         )
 
 
-@dataclass(frozen=True)
-class InitializeRequest:
+class InitializeRequest(BaseModel):
     root_uri: str
 
     @property
@@ -130,8 +127,7 @@ class InitializeRequest:
         return "initialize"
 
 
-@dataclass(frozen=True)
-class ShutdownRequest:
+class ShutdownRequest(BaseModel):
     @property
     def params(self) -> dict[Any, Any]:
         return {}
@@ -141,8 +137,7 @@ class ShutdownRequest:
         return "shutdown"
 
 
-@dataclass(frozen=True)
-class WaitForDiagnosticsRequest:
+class WaitForDiagnosticsRequest(BaseModel):
     uri: str
     version: int
 
@@ -158,8 +153,7 @@ class WaitForDiagnosticsRequest:
         }
 
 
-@dataclass(frozen=True)
-class DocumentSymbolRequest:
+class DocumentSymbolRequest(BaseModel):
     uri: str
 
     @staticmethod
@@ -175,8 +169,7 @@ class DocumentSymbolRequest:
         }
 
 
-@dataclass(frozen=True)
-class PlainGoalRequest:
+class PlainGoalRequest(BaseModel):
     uri: str
     position: Position
 
@@ -203,8 +196,7 @@ Request = (
 )
 
 
-@dataclass(frozen=True)
-class InitializedNotification:
+class InitializedNotification(BaseModel):
     @property
     def params(self) -> dict[Any, Any]:
         return {}
@@ -214,8 +206,7 @@ class InitializedNotification:
         return "initialized"
 
 
-@dataclass(frozen=True)
-class ExitNotification:
+class ExitNotification(BaseModel):
     @staticmethod
     def method() -> str:
         return "exit"
@@ -225,8 +216,7 @@ class ExitNotification:
         return {}
 
 
-@dataclass(frozen=True)
-class DidOpenNotification:
+class DidOpenNotification(BaseModel):
     uri: str
     text: str
     version: int
@@ -248,14 +238,12 @@ class DidOpenNotification:
         }
 
 
-@dataclass(frozen=True)
-class ContentChange:
+class ContentChange(BaseModel):
     text: str
     range: Range
 
 
-@dataclass(frozen=True)
-class DidChangeNotification:
+class DidChangeNotification(BaseModel):
     uri: str
     version: int
     text: str
@@ -304,8 +292,7 @@ ClientNotification = (
 )
 
 
-@dataclass(frozen=True)
-class Diagnostic:
+class Diagnostic(BaseModel):
     source: str
     severity: int
     range: Range
@@ -323,8 +310,7 @@ class Diagnostic:
         )
 
 
-@dataclass(frozen=True)
-class DiagnosticsNotification:
+class DiagnosticsNotification(BaseModel):
     version: int
     uri: str
     diagnostics: list[Diagnostic]
@@ -346,8 +332,7 @@ class DiagnosticsNotification:
         )
 
 
-@dataclass(frozen=True)
-class RegisterCapabilityNotification:
+class RegisterCapabilityNotification(BaseModel):
     @staticmethod
     def method() -> str:
         return "client/registerCapability"
@@ -358,8 +343,7 @@ class RegisterCapabilityNotification:
         return cls()
 
 
-@dataclass
-class LeanProgressNotification:
+class LeanProgressNotification(BaseModel):
     uri: str
     version: int
     processing: list[Range]
@@ -385,8 +369,7 @@ class LeanProgressNotification:
         )
 
 
-@dataclass(frozen=True)
-class InlayHintNotification:
+class InlayHintNotification(BaseModel):
     @staticmethod
     def method() -> str:
         return "workspace/inlayHint/refresh"
@@ -397,8 +380,7 @@ class InlayHintNotification:
         return cls()
 
 
-@dataclass(frozen=True)
-class SemanticTokensNotification:
+class SemanticTokensNotification(BaseModel):
 
     @staticmethod
     def method() -> str:
@@ -419,18 +401,16 @@ ServerNotification = (
 )
 
 
-@dataclass(frozen=True)
-class WaitForDiagnosticsResponse:
+class WaitForDiagnosticsResponse(BaseModel):
     id: int
 
     @classmethod
     def from_response(cls, json: Any) -> "WaitForDiagnosticsResponse":
         id = json["id"]
-        return cls(id)
+        return WaitForDiagnosticsResponse(id=id)
 
 
-@dataclass(frozen=True)
-class DocumentSymbol:
+class DocumentSymbol(BaseModel):
     name: str
     kind: int
     range: Range
@@ -450,8 +430,7 @@ class DocumentSymbol:
         )
 
 
-@dataclass(frozen=True)
-class DocumentSymbolResponse:
+class DocumentSymbolResponse(BaseModel):
     id: int
     symbols: list[DocumentSymbol]
 
@@ -459,31 +438,33 @@ class DocumentSymbolResponse:
     def from_response(cls, json: Any) -> "DocumentSymbolResponse":
         id = json["id"]
         symbols = [DocumentSymbol.from_response(s) for s in json["result"]]
-        return cls(id, symbols)
+        return cls(
+            id=id,
+            symbols=symbols,
+        )
 
 
-@dataclass(frozen=True)
-class InitializedResponse:
+class InitializedResponse(BaseModel):
     id: int
 
     @classmethod
     def from_response(cls, json: Any) -> "InitializedResponse":
         id = json["id"]
-        return cls(id)
+        return cls(id=id)
 
 
-@dataclass(frozen=True)
-class NoGoalResponse:
+class NoGoalResponse(BaseModel):
     id: int
 
     @classmethod
     def from_response(cls, json: Any) -> "NoGoalResponse":
         id = json["id"]
-        return cls(id)
+        return cls(
+            id=id,
+        )
 
 
-@dataclass(frozen=True)
-class PlainGoalResponse:
+class PlainGoalResponse(BaseModel):
     id: int
     rendered: str
     goals: list[str]
@@ -493,20 +474,23 @@ class PlainGoalResponse:
         id = json["id"]
         if "result" not in json or json["result"] is None:
             assert isinstance(id, int)
-            return NoGoalResponse(id)
+            return NoGoalResponse(id=id)
         rendered = json["result"]["rendered"]
         goals = json["result"]["goals"]
-        return cls(id, rendered, goals)
+        return cls(
+            id=id,
+            rendered=rendered,
+            goals=goals,
+        )
 
 
-@dataclass(frozen=True)
-class ShutdownResponse:
+class ShutdownResponse(BaseModel):
     id: int
 
     @classmethod
     def from_response(cls, json: Any) -> "ShutdownResponse":
         id = json["id"]
-        return cls(id)
+        return cls(id=id)
 
 
 Response = (
@@ -805,7 +789,7 @@ class LeanClient:
         client = cls(workspace)
         logging.debug("Starting Lean client...")
         workspace_uri = workspace.resolve().as_uri()
-        client.send_request(InitializeRequest(workspace_uri))
+        client.send_request(InitializeRequest(root_uri=workspace_uri))
         logging.debug("Sent initialize request.")
         time.sleep(0.5)
         client.send_notification(InitializedNotification())

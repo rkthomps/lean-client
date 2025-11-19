@@ -7,7 +7,7 @@ from typing import Optional
 
 import logging
 import threading
-from dataclasses import dataclass
+from pydantic import BaseModel
 from pathlib import Path
 
 from lean_client.client import (
@@ -30,13 +30,11 @@ from lean_client.lsp_utils import get_range_str
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ProofSucceededResult:
+class ProofSucceededResult(BaseModel):
     pass
 
 
-@dataclass
-class ProofFailedResult:
+class ProofFailedResult(BaseModel):
     diagnostics: list[Diagnostic]
 
 
@@ -169,7 +167,7 @@ class Harness:
         # The sig_range begins at the _type signature_ and not the beginning of
         # the declaration.
         full_sig_range = Range(
-            self.theorem_info.range.start, self.theorem_info.sig_range.end
+            start=self.theorem_info.range.start, end=self.theorem_info.sig_range.end
         )
         return get_range_str(self.orig_file_contents, full_sig_range)
 

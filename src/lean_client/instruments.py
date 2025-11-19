@@ -11,14 +11,12 @@ from typing import Any
 from pathlib import Path
 import subprocess
 
-from dataclasses import dataclass
-from dataclasses_json import DataClassJsonMixin
+from pydantic import BaseModel
 
 from lean_client.client import Range, LeanClient
 
 
-@dataclass
-class TheoremInfo(DataClassJsonMixin):
+class TheoremInfo(BaseModel):
     name: str
     range: Range
     sig_range: Range
@@ -28,9 +26,9 @@ class TheoremInfo(DataClassJsonMixin):
     def from_lean_dict(cls, data: Any) -> "TheoremInfo":
         return cls(
             name=data["name"],
-            range=Range.from_dict(data["range"]),  # type: ignore
-            sig_range=Range.from_dict(data["sigRange"]),  # type: ignore
-            val_range=Range.from_dict(data["valRange"]),  # type: ignore
+            range=Range.model_validate(data["range"]),
+            sig_range=Range.model_validate(data["sigRange"]),
+            val_range=Range.model_validate(data["valRange"]),
         )
 
 
@@ -50,8 +48,7 @@ class CommandError(Exception):
     pass
 
 
-@dataclass
-class HeartbeatCommand:
+class HeartbeatCommand(BaseModel):
     workspace: Path  # Root of Lean project
 
     def __post_init__(self):
@@ -74,8 +71,7 @@ class HeartbeatCommand:
         return result.returncode == 0
 
 
-@dataclass
-class TheoremInfoCommand:
+class TheoremInfoCommand(BaseModel):
     workspace: Path  # Root of Lean project
     rel_filepath: Path  # Relative to workspace root
 
