@@ -161,7 +161,7 @@ class Harness:
         """
         return self.get_prefix_core(self.orig_file_contents)
 
-    def get_theorem_signature(self) -> str:
+    def get_full_theorem_signature(self) -> str:
         """
         Get the signature of the theorem as defined by the ranges returned
         by Lean.
@@ -172,6 +172,15 @@ class Harness:
             self.theorem_info.range.start, self.theorem_info.sig_range.end
         )
         return get_range_str(self.orig_file_contents, full_sig_range)
+
+    def get_type_signature(self) -> str:
+        """
+        Get the signature of the theorem as defined by the ranges returned
+        by Lean.
+        """
+        # The sig_range begins at the _type signature_ and not the beginning of
+        # the declaration.
+        return get_range_str(self.orig_file_contents, self.theorem_info.sig_range)
 
     def check_proof(
         self, proof: str, timeout: float = 10.0
