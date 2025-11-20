@@ -118,7 +118,7 @@ class Harness:
             orig_file_contents = self.file.read_text()
             if clear_proof:
                 self.orig_file_contents = (
-                    self.get_prefix_core(orig_file_contents) + ":= by sorry\n"
+                    self.get_prefix_core(orig_file_contents) + " := by sorry\n"
                 )
             else:
                 raise NotImplementedError(
@@ -150,7 +150,7 @@ class Harness:
     def get_prefix_core(self, contents: str) -> str:
         prefix_range = Range(
             start=Position(line=0, character=0),
-            end=self.theorem_info.val_range.start,
+            end=self.theorem_info.sig_range.end,
         )
         prefix = get_range_str(contents, prefix_range)
         return prefix
