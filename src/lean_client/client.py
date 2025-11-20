@@ -7,11 +7,13 @@ import sys
 import time
 import json
 import select
+import signal
 
 import subprocess
 import threading
 import logging
 
+from psutil import TimeoutExpired
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -595,6 +597,7 @@ class LeanClient:
             bufsize=0,
             env=copy_env,
             cwd=work_dir,
+            start_new_session=True,
         )
         self.process.stdout
         self.request_id = 0
@@ -726,8 +729,13 @@ class LeanClient:
     def shutdown(self):
         self.send_request(ShutdownRequest())
         self.send_notification(ExitNotification())
-        self.process.terminate()
-        self.process.wait()
+        os.killpg(self.process.pid, signal.SIGTERM)
+        try:
+            self.process.wait(timeout=0.5)
+        except TimeoutExpired:
+            # fallback hammer
+            os.killpg(self.process.pid, signal.SIGKILL)
+            self.process.wait()
 
     def send_str(self, message: str):
         message_bytes = message.encode("utf-8")
