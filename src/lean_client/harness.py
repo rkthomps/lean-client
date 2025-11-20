@@ -38,7 +38,7 @@ class ProofFailedResult(BaseModel):
     diagnostics: list[Diagnostic]
 
 
-STARTUP_LOCK = threading.Semaphore(4)
+STARTUP_LOCK = threading.Semaphore(32)
 
 # Map of workspace path to LeanClient instance.
 CLIENT_MAP: dict[Path, LeanClient] = {}
