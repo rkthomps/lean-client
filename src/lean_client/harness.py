@@ -55,6 +55,7 @@ class Harness:
         theorem_name: str,
         clear_proof: bool = True,
         clear_file_proofs: bool = False,
+        timeout: float = 60,
     ):
         """
         Args:
@@ -63,6 +64,7 @@ class Harness:
             theorem_name: The (fully qualified) name of the theorem to be proved.
             clear_proof: Whether to clear the proof of the theorem before attempting to prove it.
             clear_file_proofs: Whether to clear the proofs of all theorems in the file before attempting to prove the target theorem.
+            timeout: The timeout (in seconds) for Initial Diagnostics request.
 
         TODO:
         - It might be better to pass in a LeanClient instance instead of creating one here.
@@ -129,6 +131,7 @@ class Harness:
                 WaitForDiagnosticsRequest(
                     uri=self.file_uri, version=self.client.file_version(self.file_uri)
                 ),
+                timeout=timeout,
             )
             assert isinstance(response, WaitForDiagnosticsResponse)
 

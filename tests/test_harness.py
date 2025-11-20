@@ -12,7 +12,6 @@ from tests.util import INSTR_PROJ_LOC, NO_INSTR_PROJ_LOC, BuildError
 class Foo(BaseModel):
     result: ProofSucceededResult | ProofFailedResult
 
-
 def test_serialize_proof_result() -> None:
     result = Foo(result=ProofFailedResult(diagnostics=[]))
     as_json = result.model_dump_json()
