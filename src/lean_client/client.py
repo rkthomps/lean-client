@@ -727,8 +727,20 @@ class LeanClient:
                 self.latest_diagnostics[message.uri] = message
 
     def shutdown(self):
-        self.send_request(ShutdownRequest())
+        self.send_request(ShutdownRequest(), timeout=60.0)
         self.send_notification(ExitNotification())
+        try:
+            if self.process.stdin is not None:
+                self.process.stdin.close()
+        except Exception as e:
+            pass
+
+        try:
+            self.process.wait(timeout=2)
+            return
+        except TimeoutExpired:
+            pass
+
         os.killpg(self.process.pid, signal.SIGTERM)
         try:
             self.process.wait(timeout=0.5)
