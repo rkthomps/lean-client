@@ -736,14 +736,14 @@ class LeanClient:
             pass
 
         try:
-            self.process.wait(timeout=2)
+            self.process.wait(timeout=60.0)
             return
         except TimeoutExpired:
             pass
 
         os.killpg(self.process.pid, signal.SIGTERM)
         try:
-            self.process.wait(timeout=0.5)
+            self.process.wait(timeout=60.0)
         except TimeoutExpired:
             # fallback hammer
             os.killpg(self.process.pid, signal.SIGKILL)
