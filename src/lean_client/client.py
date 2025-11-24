@@ -13,7 +13,7 @@ import subprocess
 import threading
 import logging
 
-from psutil import TimeoutExpired
+from subprocess import TimeoutExpired
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -732,9 +732,22 @@ class LeanClient:
         self.send_notification(ExitNotification())
         if self.process.stdin is not None:
             self.process.stdin.close()
-        self.process.terminate()
-        self.process.wait(timeout=10.0)
-        self.process.kill()
+        try:
+            pgid = os.getpgid(self.process.pid)
+            os.killpg(pgid, signal.SIGTERM)
+            try:
+                self.process.wait(timeout=10)
+            except TimeoutExpired:
+                # Force kill
+                os.killpg(pgid, signal.SIGKILL)
+
+        # Process already exited
+        except ProcessLookupError:
+            try:
+                self.process.wait(timeout=0)
+                return
+            except Exception:
+                return
 
     def send_str(self, message: str):
         message_bytes = message.encode("utf-8")
