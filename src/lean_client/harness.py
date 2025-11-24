@@ -38,7 +38,7 @@ class ProofFailedResult(BaseModel):
     diagnostics: list[Diagnostic]
 
 
-STARTUP_LOCK = threading.Semaphore(32)
+STARTUP_LOCK = threading.Semaphore(8)
 
 # Map of workspace path to LeanClient instance.
 CLIENT_MAP: dict[Path, LeanClient] = {}
@@ -55,7 +55,7 @@ class Harness:
         theorem_name: str,
         clear_proof: bool = True,
         clear_file_proofs: bool = False,
-        timeout: float = 60,
+        timeout: float = 120,
     ):
         """
         Args:
