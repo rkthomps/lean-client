@@ -295,7 +295,7 @@ ClientNotification = (
 
 
 class Diagnostic(BaseModel):
-    source: str
+    source: str | None
     severity: int
     range: Range
     message: str
@@ -304,7 +304,7 @@ class Diagnostic(BaseModel):
     @classmethod
     def from_response(cls, json: Any) -> "Diagnostic":
         return cls(
-            source=json["source"],
+            source=json.get("source"),
             severity=json["severity"],
             range=Range.from_response(json["range"]),
             message=json["message"],
