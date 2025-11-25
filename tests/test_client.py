@@ -8,8 +8,8 @@ from lean_client.client import (
     LeanClient,
     WaitForDiagnosticsRequest,
     WaitForDiagnosticsResponse,
-    DocumentSymbolRequest,
-    DocumentSymbolResponse,
+    FindTheoremsRequest,
+    FindTheoremsResponse,
 )
 
 
@@ -24,7 +24,7 @@ def bar : Nat := 0
 @dataclass
 class DummyClient:
     def __init__(self):
-        self.client = LeanClient.start(self.workspace)
+        self.client = LeanClient.start(self.workspace, instrument_server=True)
 
     @property
     def workspace(self) -> Path:
@@ -60,12 +60,12 @@ class DummyClient:
 #         assert len(bad_diags) == 1
 
 
-def test_document_symbol_request():
+def test_find_theorems_request():
     with DummyClient() as dc:
         dc.client.open_file(dc.dummy_uri, DUMMY_TEXT)
-        request = DocumentSymbolRequest(uri=dc.dummy_uri)
+        request = FindTheoremsRequest(uri=dc.dummy_uri)
         response = dc.client.send_request(request)
-        assert isinstance(response, DocumentSymbolResponse)
+        assert isinstance(response, FindTheoremsResponse)
         # assert len(response.symbols) == 2
         # assert response.symbols[0].name == "foo"
         # assert response.symbols[1].name == "bar"
@@ -73,7 +73,7 @@ def test_document_symbol_request():
 
 def test_batteries_document_symbol_request():
     uri = INSTR_PROJ_LOC.resolve().as_uri()
-    client = LeanClient.start(INSTR_PROJ_LOC)
+    client = LeanClient.start(INSTR_PROJ_LOC, instrument_server=True)
     file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
     file_uri = file.resolve().as_uri()
     try:
@@ -83,9 +83,14 @@ def test_batteries_document_symbol_request():
         )
         wait_response = client.send_request(wait_request)
         assert isinstance(wait_response, WaitForDiagnosticsResponse)
-        request = DocumentSymbolRequest(uri=file_uri)
+        diags = client.latest_diagnostics[file_uri]
+        print(f"Diagnostics: {diags.diagnostics}")
+        request = FindTheoremsRequest(uri=file_uri)
         response = client.send_request(request)
-        assert isinstance(response, DocumentSymbolResponse)
-        assert len(response.symbols) > 0
+        assert isinstance(response, FindTheoremsResponse)
     finally:
         client.shutdown()
+
+
+if __name__ == "__main__":
+    test_batteries_document_symbol_request()

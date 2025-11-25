@@ -1,0 +1,11 @@
+Content-Length: 216
+
+{"params":{"trace":"off","rootUri":"file:///Users/kyle/research/data-collection/lean-client/tests/test-data/lean-instr-proj","initializationOptions":{},"capabilities":{}},"method":"initialize","jsonrpc":"2.0","id":0}Content-Length: 389
+
+{"params":{"textDocument":{"version":1,"uri":"file:///Users/kyle/research/data-collection/lean-client/tests/test-data/lean-instr-proj/LeanInstrProj/BatteryStuff.lean","text":"import Batteries.Data.Rat\n\ntheorem rat_to_float : ∀ r, Rat.toFloat r = Rat.toFloat r := by\n  intros; rfl\n","languageId":"lean"},"dependencyBuildMode":"always"},"method":"textDocument/didOpen","jsonrpc":"2.0"}Content-Length: 218
+
+{"params":{"version":1,"uri":"file:///Users/kyle/research/data-collection/lean-client/tests/test-data/lean-instr-proj/LeanInstrProj/BatteryStuff.lean"},"method":"textDocument/waitForDiagnostics","jsonrpc":"2.0","id":2}Content-Length: 211
+
+{"params":{"textDocument":{"uri":"file:///Users/kyle/research/data-collection/lean-client/tests/test-data/lean-instr-proj/LeanInstrProj/BatteryStuff.lean"}},"method":"$/lean/findTheorems","jsonrpc":"2.0","id":3}Content-Length: 33
+
+{"method":"exit","jsonrpc":"2.0"}

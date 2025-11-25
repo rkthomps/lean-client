@@ -115,6 +115,22 @@ class Range(BaseModel):
         )
 
 
+class TheoremInfo(BaseModel):
+    name: str
+    range: Range
+    sig_range: Range
+    val_range: Range
+
+    @classmethod
+    def from_lean_dict(cls, data: Any) -> "TheoremInfo":
+        return cls(
+            name=data["name"],
+            range=Range.model_validate(data["range"]),
+            sig_range=Range.model_validate(data["sigRange"]),
+            val_range=Range.model_validate(data["valRange"]),
+        )
+
+
 class InitializeRequest(BaseModel):
     root_uri: str
 
@@ -155,22 +171,6 @@ class WaitForDiagnosticsRequest(BaseModel):
         }
 
 
-class DocumentSymbolRequest(BaseModel):
-    uri: str
-
-    @staticmethod
-    def method() -> str:
-        return "textDocument/documentSymbol"
-
-    @property
-    def params(self) -> dict[str, Any]:
-        return {
-            "textDocument": {
-                "uri": self.uri,
-            }
-        }
-
-
 class PlainGoalRequest(BaseModel):
     uri: str
     position: Position
@@ -189,12 +189,28 @@ class PlainGoalRequest(BaseModel):
         }
 
 
+class FindTheoremsRequest(BaseModel):
+    uri: str
+
+    @staticmethod
+    def method() -> str:
+        return "$/lean/findTheorems"
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return {
+            "textDocument": {
+                "uri": self.uri,
+            },
+        }
+
+
 Request = (
     InitializeRequest
     | ShutdownRequest
     | PlainGoalRequest
     | WaitForDiagnosticsRequest
-    | DocumentSymbolRequest
+    | FindTheoremsRequest
 )
 
 
@@ -432,17 +448,18 @@ class DocumentSymbol(BaseModel):
         )
 
 
-class DocumentSymbolResponse(BaseModel):
+class FindTheoremsResponse(BaseModel):
     id: int
-    symbols: list[DocumentSymbol]
+    theorems: list[TheoremInfo]
 
     @classmethod
-    def from_response(cls, json: Any) -> "DocumentSymbolResponse":
+    def from_response(cls, json: Any) -> "FindTheoremsResponse":
+        print("GOT JSON:", json)
         id = json["id"]
-        symbols = [DocumentSymbol.from_response(s) for s in json["result"]]
+        theorems = [TheoremInfo.from_lean_dict(t) for t in json["result"]["theorems"]]
         return cls(
             id=id,
-            symbols=symbols,
+            theorems=theorems,
         )
 
 
@@ -501,7 +518,7 @@ Response = (
     | NoGoalResponse
     | ShutdownResponse
     | WaitForDiagnosticsResponse
-    | DocumentSymbolResponse
+    | FindTheoremsResponse
 )
 
 
@@ -515,8 +532,8 @@ def get_response_ty(request: Request) -> type[Response]:
             return ShutdownResponse
         case WaitForDiagnosticsRequest():
             return WaitForDiagnosticsResponse
-        case DocumentSymbolRequest():
-            return DocumentSymbolResponse
+        case FindTheoremsRequest():
+            return FindTheoremsResponse
         case _:
             raise ValueError(f"Unknown request type: {type(request)}")
 
@@ -574,15 +591,23 @@ def read_lsp_message_header(stream: IO[bytes]) -> int:
             (content_length_str,) = match.groups()
             content_length = int(content_length_str)
     if content_length is None:
-        raise ValueError("No Content-Length header found")
+        raise ValueError(
+            f"No Content-Length header found. Got headers:\n{line}; {len(line)}"
+        )
     return content_length
 
 
+TMP = "/Users/kyle/research/data-collection/lean-llm-instruments/llm-instruments/.lake/build/bin/llm-instruments-server"
+
+
 class LeanClient:
-    def __init__(self, workspace: Optional[Path]):
+    def __init__(self, workspace: Optional[Path], instrument_server: bool = False):
         copy_env = os.environ.copy()
         work_dir = workspace if workspace is not None else Path.cwd().resolve()
-        if (work_dir / "lakefile.lean").exists() or (
+        if instrument_server:
+            command = ["lake", "exe", "llm-instruments-server"]
+            copy_env["LEAN_WORKER_PATH"] = TMP
+        elif (work_dir / "lakefile.lean").exists() or (
             work_dir / "lakefile.toml"
         ).exists():
             command = ["lake", "serve"]
@@ -805,8 +830,8 @@ class LeanClient:
         return response_data
 
     @classmethod
-    def start(cls, workspace: Path) -> "LeanClient":
-        client = cls(workspace)
+    def start(cls, workspace: Path, instrument_server: bool = False) -> "LeanClient":
+        client = cls(workspace, instrument_server=instrument_server)
         logging.debug("Starting Lean client...")
         workspace_uri = workspace.resolve().as_uri()
         client.send_request(InitializeRequest(root_uri=workspace_uri))
