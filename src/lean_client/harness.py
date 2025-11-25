@@ -183,6 +183,14 @@ class Harness:
         # the declaration.
         return get_range_str(self.orig_file_contents, self.theorem_info.sig_range)
 
+    def get_error_diagnostics(self) -> list[Diagnostic]:
+        latest_diags = self.client.latest_diagnostics[self.file_uri].diagnostics
+        proof_diagnostics = [
+            d for d in latest_diags if self.theorem_info.range.start <= d.range.end
+        ]
+        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
+        return proof_error_diagnostics
+
     def check_proof(
         self, proof: str, timeout: float = 10.0
     ) -> ProofSucceededResult | ProofFailedResult:
