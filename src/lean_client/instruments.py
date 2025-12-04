@@ -13,23 +13,7 @@ import subprocess
 
 from pydantic import BaseModel
 
-from lean_client.client import Range, LeanClient
-
-
-class TheoremInfo(BaseModel):
-    name: str
-    range: Range
-    sig_range: Range
-    val_range: Range
-
-    @classmethod
-    def from_lean_dict(cls, data: Any) -> "TheoremInfo":
-        return cls(
-            name=data["name"],
-            range=Range.model_validate(data["range"]),
-            sig_range=Range.model_validate(data["sigRange"]),
-            val_range=Range.model_validate(data["valRange"]),
-        )
+from lean_client.client import Range, LeanClient, TheoremInfo
 
 
 def run_command(

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from http import client
 from pathlib import Path
 import textwrap
 from typing import Any
@@ -8,8 +9,8 @@ from lean_client.client import (
     LeanClient,
     WaitForDiagnosticsRequest,
     WaitForDiagnosticsResponse,
-    DocumentSymbolRequest,
-    DocumentSymbolResponse,
+    FindTheoremsRequest,
+    FindTheoremsResponse,
 )
 
 
@@ -24,7 +25,7 @@ def bar : Nat := 0
 @dataclass
 class DummyClient:
     def __init__(self):
-        self.client = LeanClient.start(self.workspace)
+        self.client = LeanClient.start(self.workspace, instrument_server=False)
 
     @property
     def workspace(self) -> Path:
@@ -60,12 +61,17 @@ class DummyClient:
 #         assert len(bad_diags) == 1
 
 
-def test_document_symbol_request():
+def test_find_theorems_request():
     with DummyClient() as dc:
         dc.client.open_file(dc.dummy_uri, DUMMY_TEXT)
-        request = DocumentSymbolRequest(uri=dc.dummy_uri)
-        response = dc.client.send_request(request)
-        assert isinstance(response, DocumentSymbolResponse)
+        wait_request = WaitForDiagnosticsRequest(
+            uri=dc.dummy_uri, version=dc.client.file_version(dc.dummy_uri)
+        )
+        wait_response = dc.client.send_request(wait_request)
+        assert isinstance(wait_response, WaitForDiagnosticsResponse)
+        # request = FindTheoremsRequest(uri=dc.dummy_uri)
+        # response = dc.client.send_request(request)
+        # assert isinstance(response, FindTheoremsResponse)
         # assert len(response.symbols) == 2
         # assert response.symbols[0].name == "foo"
         # assert response.symbols[1].name == "bar"
@@ -73,8 +79,9 @@ def test_document_symbol_request():
 
 def test_batteries_document_symbol_request():
     uri = INSTR_PROJ_LOC.resolve().as_uri()
-    client = LeanClient.start(INSTR_PROJ_LOC)
+    client = LeanClient.start(INSTR_PROJ_LOC, instrument_server=True)
     file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
+    # file = INSTR_PROJ_LOC / "LeanInstrProj" / "Harness.lean"
     file_uri = file.resolve().as_uri()
     try:
         client.open_file(file_uri, file.read_text())
@@ -83,9 +90,16 @@ def test_batteries_document_symbol_request():
         )
         wait_response = client.send_request(wait_request)
         assert isinstance(wait_response, WaitForDiagnosticsResponse)
-        request = DocumentSymbolRequest(uri=file_uri)
+        diags = client.latest_diagnostics[file_uri]
+        print(f"Diagnostics: {diags.diagnostics}")
+        request = FindTheoremsRequest(uri=file_uri)
         response = client.send_request(request)
-        assert isinstance(response, DocumentSymbolResponse)
-        assert len(response.symbols) > 0
+        assert isinstance(response, FindTheoremsResponse)
+        assert len(response.theorems) == 1
+        assert response.theorems[0].name == "rat_to_float"
     finally:
         client.shutdown()
+
+
+if __name__ == "__main__":
+    test_batteries_document_symbol_request()
