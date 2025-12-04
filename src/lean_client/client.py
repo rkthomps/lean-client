@@ -454,7 +454,6 @@ class FindTheoremsResponse(BaseModel):
 
     @classmethod
     def from_response(cls, json: Any) -> "FindTheoremsResponse":
-        print("GOT JSON:", json)
         id = json["id"]
         theorems = [TheoremInfo.from_lean_dict(t) for t in json["result"]["theorems"]]
         return cls(
@@ -597,7 +596,17 @@ def read_lsp_message_header(stream: IO[bytes]) -> int:
     return content_length
 
 
-TMP = "/Users/kyle/research/data-collection/lean-llm-instruments/llm-instruments/.lake/build/bin/llm-instruments-server"
+def get_server_path(workspace: Path) -> Path:
+    return (
+        workspace
+        / ".lake"
+        / "packages"
+        / "llm-instruments"
+        / ".lake"
+        / "build"
+        / "bin"
+        / "llm-instruments-server"
+    )
 
 
 class LeanClient:
@@ -605,8 +614,14 @@ class LeanClient:
         copy_env = os.environ.copy()
         work_dir = workspace if workspace is not None else Path.cwd().resolve()
         if instrument_server:
+            assert (
+                workspace is not None
+            ), "Workspace must be provided to use instrumented server."
+            server_path = get_server_path(workspace).resolve()
+            assert server_path.exists(), f"Server path {server_path} does not exist."
             command = ["lake", "exe", "llm-instruments-server"]
-            copy_env["LEAN_WORKER_PATH"] = TMP
+            copy_env["LEAN_WORKER_PATH"] = str(server_path)
+
         elif (work_dir / "lakefile.lean").exists() or (
             work_dir / "lakefile.toml"
         ).exists():
@@ -698,7 +713,6 @@ class LeanClient:
             self.update_diagnostics()
             if uri in self.latest_diagnostics:
                 diag = self.latest_diagnostics[uri]
-                print(f"Got diagnostics: {diag}")
                 if diag.version == self.managed_files[uri]:
                     return diag
             time.sleep(wait_interval)

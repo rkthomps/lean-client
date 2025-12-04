@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from http import client
 from pathlib import Path
 import textwrap
 from typing import Any
@@ -24,7 +25,7 @@ def bar : Nat := 0
 @dataclass
 class DummyClient:
     def __init__(self):
-        self.client = LeanClient.start(self.workspace, instrument_server=True)
+        self.client = LeanClient.start(self.workspace, instrument_server=False)
 
     @property
     def workspace(self) -> Path:
@@ -63,9 +64,14 @@ class DummyClient:
 def test_find_theorems_request():
     with DummyClient() as dc:
         dc.client.open_file(dc.dummy_uri, DUMMY_TEXT)
-        request = FindTheoremsRequest(uri=dc.dummy_uri)
-        response = dc.client.send_request(request)
-        assert isinstance(response, FindTheoremsResponse)
+        wait_request = WaitForDiagnosticsRequest(
+            uri=dc.dummy_uri, version=dc.client.file_version(dc.dummy_uri)
+        )
+        wait_response = dc.client.send_request(wait_request)
+        assert isinstance(wait_response, WaitForDiagnosticsResponse)
+        # request = FindTheoremsRequest(uri=dc.dummy_uri)
+        # response = dc.client.send_request(request)
+        # assert isinstance(response, FindTheoremsResponse)
         # assert len(response.symbols) == 2
         # assert response.symbols[0].name == "foo"
         # assert response.symbols[1].name == "bar"
@@ -75,6 +81,7 @@ def test_batteries_document_symbol_request():
     uri = INSTR_PROJ_LOC.resolve().as_uri()
     client = LeanClient.start(INSTR_PROJ_LOC, instrument_server=True)
     file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
+    # file = INSTR_PROJ_LOC / "LeanInstrProj" / "Harness.lean"
     file_uri = file.resolve().as_uri()
     try:
         client.open_file(file_uri, file.read_text())
@@ -88,6 +95,8 @@ def test_batteries_document_symbol_request():
         request = FindTheoremsRequest(uri=file_uri)
         response = client.send_request(request)
         assert isinstance(response, FindTheoremsResponse)
+        assert len(response.theorems) == 1
+        assert response.theorems[0].name == "rat_to_float"
     finally:
         client.shutdown()
 
