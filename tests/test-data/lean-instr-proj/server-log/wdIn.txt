@@ -1,3 +1,0 @@
-Content-Length: 165
-
-{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"rootUri": "file:///Users/kyle/research/data-collection/lean-client/tests/test-data/lean-instr-proj"}}
