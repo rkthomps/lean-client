@@ -2,6 +2,7 @@
 A harness for a proof search.
 """
 
+import re
 import types
 from typing import Optional
 
@@ -34,7 +35,14 @@ class ProofSucceededResult(BaseModel):
     pass
 
 
+class InvalidPrefix(BaseModel):
+    attempted_proof: str
+    prefix: str
+    source_error: Diagnostic
+
+
 class ProofFailedResult(BaseModel):
+    learned_prefix: Optional[InvalidPrefix]
     diagnostics: list[Diagnostic]
 
 
@@ -155,6 +163,12 @@ class Harness:
         prefix = get_range_str(contents, prefix_range)
         return prefix
 
+    def get_theorem_context(self) -> str:
+        theorem_start_line = self.theorem_info.range.start.line
+        lines = self.orig_file_contents.splitlines()
+        context_lines = lines[:theorem_start_line]
+        return "\n".join(context_lines)
+
     def get_file_prefix(self) -> str:
         """
         Get the preifx of the file, including the theorem statement, up to
@@ -191,10 +205,64 @@ class Harness:
         proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
         return proof_error_diagnostics
 
+    def get_learned_prefix_from_error(
+        self, file_contents: str, attempted_proof: str, error: Diagnostic
+    ) -> Optional[InvalidPrefix]:
+        """
+        An easy heuristic to get an "invalid prefix" from an error.
+        Here, we take the prefix of a proof up to an error position.
+        We also exclude error messages like "unsolved goals" since these
+        do not indicate an invalid prefix.
+        Instead, they indicate that the proof is incomplete.
+
+        Note that this implementation is a bit naive.
+        For example, it erroniously finds an invalid prefix in the following
+        proofs:
+
+        theorem foo : True := by
+          sim -- error at 'sim' (incomplete tactic)
+
+        theorem bar : True := by
+          exact -- need to apply exact to a term
+        """
+        if re.search(r"Alternative .*? has not been provided", error.message):
+            return None
+
+        if re.search(r"unsolved goals", error.message):
+            return None
+
+        error_end_pos = error.range.end  # Might have to add one
+        error_end_str = get_range_str(
+            file_contents, Range(start=Position(line=0, character=0), end=error_end_pos)
+        )
+        assert error_end_str.startswith(self.get_file_prefix())
+        invalid_prefix = error_end_str[len(self.get_file_prefix()) :]
+        assert attempted_proof.startswith(invalid_prefix)
+        invalid_prefix = InvalidPrefix(
+            attempted_proof=attempted_proof,
+            prefix=invalid_prefix,
+            source_error=error,
+        )
+        return invalid_prefix
+
+    def get_learned_prefix(
+        self, file_contents: str, attempted_proof: str, errors: list[Diagnostic]
+    ) -> Optional[InvalidPrefix]:
+        invalid_candidates = [
+            self.get_learned_prefix_from_error(file_contents, attempted_proof, e)
+            for e in errors
+        ]
+        true_candidates = [c for c in invalid_candidates if c is not None]
+        if len(true_candidates) == 0:
+            return None
+        # Return the shortest invalid prefix
+        return min(true_candidates, key=lambda c: len(c.prefix))
+
     def check_proof(
         self, proof: str, timeout: float = 10.0
     ) -> ProofSucceededResult | ProofFailedResult:
         new_file_contents = self.get_file_prefix() + proof
+        print("checking proof: ", new_file_contents)
         self.client.change_file(self.file_uri, new_file_contents)
         wait_response = self.client.send_request(
             WaitForDiagnosticsRequest(
@@ -204,30 +272,34 @@ class Harness:
         )
         assert isinstance(wait_response, WaitForDiagnosticsResponse)
         diagnostics = self.client.latest_diagnostics[self.file_uri].diagnostics
-        # TODO: Might have to do the "proof replacement strategy"
-        # e.g. if there is a remaining open section or namespace
-        # that might trigger an error here but is not really a proof error.
-        # so we need to find where the proof ends.
+
         proof_diagnostics = [
             d for d in diagnostics if self.theorem_info.range.start <= d.range.end
         ]
+        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
+        if 0 < len(proof_error_diagnostics):
+            learned_prefix = self.get_learned_prefix(
+                file_contents=new_file_contents,
+                attempted_proof=proof,
+                errors=proof_error_diagnostics,
+            )
+            return ProofFailedResult(
+                learned_prefix=learned_prefix, diagnostics=proof_diagnostics
+            )
+
         proof_sorry_diagnostics = [
             d
             for d in proof_diagnostics
             if d.severity == 2 and "declaration uses 'sorry'" in d.message
         ]
-        if len(proof_sorry_diagnostics) > 0:
+        if 0 < len(proof_sorry_diagnostics):
             """
             Here the proof failed because it used 'sorry'.
             So the prefix including the last sorry can be learned.
             """
-            return ProofFailedResult(diagnostics=proof_diagnostics)
+            return ProofFailedResult(diagnostics=proof_diagnostics, learned_prefix=None)
 
-        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
-        if len(proof_error_diagnostics) == 0:
-            return ProofSucceededResult()
-        else:
-            return ProofFailedResult(diagnostics=proof_diagnostics)
+        return ProofSucceededResult()
 
     def __enter__(self):
         return self
