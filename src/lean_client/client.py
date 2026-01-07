@@ -115,22 +115,6 @@ class Range(BaseModel):
         )
 
 
-class TheoremInfo(BaseModel):
-    name: str
-    range: Range
-    sig_range: Range
-    val_range: Range
-
-    @classmethod
-    def from_lean_dict(cls, data: Any) -> "TheoremInfo":
-        return cls(
-            name=data["name"],
-            range=Range.model_validate(data["range"]),
-            sig_range=Range.model_validate(data["sigRange"]),
-            val_range=Range.model_validate(data["valRange"]),
-        )
-
-
 class InitializeRequest(BaseModel):
     root_uri: str
 
@@ -171,6 +155,22 @@ class WaitForDiagnosticsRequest(BaseModel):
         }
 
 
+class DocumentSymbolRequest(BaseModel):
+    uri: str
+
+    @staticmethod
+    def method() -> str:
+        return "textDocument/documentSymbol"
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return {
+            "textDocument": {
+                "uri": self.uri,
+            }
+        }
+
+
 class PlainGoalRequest(BaseModel):
     uri: str
     position: Position
@@ -189,28 +189,12 @@ class PlainGoalRequest(BaseModel):
         }
 
 
-class FindTheoremsRequest(BaseModel):
-    uri: str
-
-    @staticmethod
-    def method() -> str:
-        return "$/lean/findTheorems"
-
-    @property
-    def params(self) -> dict[str, Any]:
-        return {
-            "textDocument": {
-                "uri": self.uri,
-            },
-        }
-
-
 Request = (
     InitializeRequest
     | ShutdownRequest
     | PlainGoalRequest
     | WaitForDiagnosticsRequest
-    | FindTheoremsRequest
+    | DocumentSymbolRequest
 )
 
 
@@ -448,17 +432,17 @@ class DocumentSymbol(BaseModel):
         )
 
 
-class FindTheoremsResponse(BaseModel):
+class DocumentSymbolResponse(BaseModel):
     id: int
-    theorems: list[TheoremInfo]
+    symbols: list[DocumentSymbol]
 
     @classmethod
-    def from_response(cls, json: Any) -> "FindTheoremsResponse":
+    def from_response(cls, json: Any) -> "DocumentSymbolResponse":
         id = json["id"]
-        theorems = [TheoremInfo.from_lean_dict(t) for t in json["result"]["theorems"]]
+        symbols = [DocumentSymbol.from_response(s) for s in json["result"]]
         return cls(
             id=id,
-            theorems=theorems,
+            symbols=symbols,
         )
 
 
@@ -517,7 +501,7 @@ Response = (
     | NoGoalResponse
     | ShutdownResponse
     | WaitForDiagnosticsResponse
-    | FindTheoremsResponse
+    | DocumentSymbolResponse
 )
 
 
@@ -531,8 +515,8 @@ def get_response_ty(request: Request) -> type[Response]:
             return ShutdownResponse
         case WaitForDiagnosticsRequest():
             return WaitForDiagnosticsResponse
-        case FindTheoremsRequest():
-            return FindTheoremsResponse
+        case DocumentSymbolRequest():
+            return DocumentSymbolResponse
         case _:
             raise ValueError(f"Unknown request type: {type(request)}")
 
@@ -590,39 +574,15 @@ def read_lsp_message_header(stream: IO[bytes]) -> int:
             (content_length_str,) = match.groups()
             content_length = int(content_length_str)
     if content_length is None:
-        raise ValueError(
-            f"No Content-Length header found. Got headers:\n{line}; {len(line)}"
-        )
+        raise ValueError("No Content-Length header found")
     return content_length
 
 
-def get_server_path(workspace: Path) -> Path:
-    return (
-        workspace
-        / ".lake"
-        / "packages"
-        / "llm-instruments"
-        / ".lake"
-        / "build"
-        / "bin"
-        / "llm-instruments-server"
-    )
-
-
 class LeanClient:
-    def __init__(self, workspace: Optional[Path], instrument_server: bool = False):
+    def __init__(self, workspace: Optional[Path]):
         copy_env = os.environ.copy()
         work_dir = workspace if workspace is not None else Path.cwd().resolve()
-        if instrument_server:
-            assert (
-                workspace is not None
-            ), "Workspace must be provided to use instrumented server."
-            server_path = get_server_path(workspace).resolve()
-            assert server_path.exists(), f"Server path {server_path} does not exist."
-            command = ["lake", "exe", "llm-instruments-server"]
-            copy_env["LEAN_WORKER_PATH"] = str(server_path)
-
-        elif (work_dir / "lakefile.lean").exists() or (
+        if (work_dir / "lakefile.lean").exists() or (
             work_dir / "lakefile.toml"
         ).exists():
             command = ["lake", "serve"]
@@ -713,6 +673,7 @@ class LeanClient:
             self.update_diagnostics()
             if uri in self.latest_diagnostics:
                 diag = self.latest_diagnostics[uri]
+                print(f"Got diagnostics: {diag}")
                 if diag.version == self.managed_files[uri]:
                     return diag
             time.sleep(wait_interval)
@@ -844,8 +805,8 @@ class LeanClient:
         return response_data
 
     @classmethod
-    def start(cls, workspace: Path, instrument_server: bool = False) -> "LeanClient":
-        client = cls(workspace, instrument_server=instrument_server)
+    def start(cls, workspace: Path) -> "LeanClient":
+        client = cls(workspace)
         logging.debug("Starting Lean client...")
         workspace_uri = workspace.resolve().as_uri()
         client.send_request(InitializeRequest(root_uri=workspace_uri))
