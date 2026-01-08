@@ -44,3 +44,8 @@ theorem prefix3 (Γ : String → Nat) (e : Exp) :
   | case2 => simp [cfold]
   | case3 => sorry
   | case4 => simp [cfold]
+
+
+theorem prefix4 (Γ : String → Nat) (e : Exp) :
+  eval Γ (cfold e) = eval Γ e := by
+  si

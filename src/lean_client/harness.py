@@ -225,10 +225,16 @@ class Harness:
         theorem bar : True := by
           exact -- need to apply exact to a term
         """
+
+        ## These rules are a bit hacky. They are fine for version 1.
         if re.search(r"Alternative .*? has not been provided", error.message):
             return None
 
         if re.search(r"unsolved goals", error.message):
+            return None
+
+        if re.search(r"unknown tactic", error.message):
+            # This is unfortunate
             return None
 
         error_end_pos = error.range.end  # Might have to add one
@@ -237,7 +243,13 @@ class Harness:
         )
         assert error_end_str.startswith(self.get_file_prefix())
         invalid_prefix = error_end_str[len(self.get_file_prefix()) :]
-        assert attempted_proof.startswith(invalid_prefix)
+        print(error.range)
+        if attempted_proof == invalid_prefix:
+            # The error is at the end of the proof. No learned prefix.
+            # Unfortunately the `unknown tactic` error only reports on the first
+            # character of the unknown tactic, so we have to have an additional check.
+            return None
+
         invalid_prefix = InvalidPrefix(
             attempted_proof=attempted_proof,
             prefix=invalid_prefix,
@@ -262,7 +274,6 @@ class Harness:
         self, proof: str, timeout: float = 10.0
     ) -> ProofSucceededResult | ProofFailedResult:
         new_file_contents = self.get_file_prefix() + proof
-        print("checking proof: ", new_file_contents)
         self.client.change_file(self.file_uri, new_file_contents)
         wait_response = self.client.send_request(
             WaitForDiagnosticsRequest(

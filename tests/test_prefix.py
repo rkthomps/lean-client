@@ -115,3 +115,49 @@ def test_prefix3(build_projects: Optional[BuildError]) -> None:
         assert (
             result.learned_prefix.prefix == " := by\n  induction e using cfold.induct e"
         )
+
+
+def test_prefix4(build_projects: Optional[BuildError]) -> None:
+    """
+    Tests a case where the learned prefix coincides with the end of a tactic sequence.
+    As an approximate solution, we do not emit any learned prefixes when the errors
+    coincide with the end of the LLM-generated string.
+
+    This is not ideal. Consider the following examples:
+
+    ```
+    def bar : True := by trivial
+
+    -- In this case, you know the tactic is done
+    thoerem ex1 : False := by
+      simp [bar]
+
+    -- In this case, simp doesn't work, but perhaps simp [...]  would work
+    theorem ex2 (n : Nat) : P := by
+      induction n with
+      | zero => simp
+      | succ n ih => ...
+    ```
+
+    theorem prefix4 (Γ : String → Nat) (e : Exp) :
+    eval Γ (cfold e) = eval Γ e := by
+    s
+    """
+    if build_projects is not None:
+        pytest.fail(str(build_projects))
+
+    # fmt: off
+    proof = (
+        " := by\n"
+        "  sim"
+    )
+    # fmt: on
+
+    with Harness(
+        workspace=INSTR_PROJ_LOC,
+        relfile=Path("LeanInstrProj/Prefix.lean"),
+        theorem_name="prefix1",
+    ) as harness:
+        result = harness.check_proof(proof)
+        assert isinstance(result, ProofFailedResult)
+        assert result.learned_prefix is None
