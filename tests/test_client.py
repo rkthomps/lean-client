@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from http import client
 from pathlib import Path
 import textwrap
+import logging
 from typing import Any
 
 import pytest
@@ -17,6 +18,8 @@ from lean_client.client import (
 )
 
 from tests.util import BuildError
+
+logger = logging.getLogger(__name__)
 
 
 DUMMY_TEXT = """

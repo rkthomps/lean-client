@@ -1,0 +1,15 @@
+{
+    "name": "Lean Client Dev Container",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "leanprover.lean4",
+                "ms-python.python",
+                "ms-python.black-formatter"
+            ]
+        }
+    }
+}
