@@ -1,8 +1,11 @@
+from typing import Optional
 from dataclasses import dataclass
 from http import client
 from pathlib import Path
 import textwrap
 from typing import Any
+
+import pytest
 from tests.util import INSTR_PROJ_LOC
 
 from lean_client.client import (
@@ -12,6 +15,8 @@ from lean_client.client import (
     FindTheoremsRequest,
     FindTheoremsResponse,
 )
+
+from tests.util import BuildError
 
 
 DUMMY_TEXT = """
@@ -77,7 +82,10 @@ def test_find_theorems_request():
         # assert response.symbols[1].name == "bar"
 
 
-def test_batteries_document_symbol_request():
+def test_batteries_document_symbol_request(build_projects: Optional[BuildError]):
+    if build_projects is not None:
+        pytest.fail(str(build_projects))
+
     uri = INSTR_PROJ_LOC.resolve().as_uri()
     client = LeanClient.start(INSTR_PROJ_LOC, instrument_server=True)
     file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
@@ -102,4 +110,4 @@ def test_batteries_document_symbol_request():
 
 
 if __name__ == "__main__":
-    test_batteries_document_symbol_request()
+    test_batteries_document_symbol_request(None)
