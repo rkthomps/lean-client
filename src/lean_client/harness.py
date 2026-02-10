@@ -243,7 +243,6 @@ class Harness:
         )
         assert error_end_str.startswith(self.get_file_prefix())
         invalid_prefix = error_end_str[len(self.get_file_prefix()) :]
-        print(error.range)
         if attempted_proof == invalid_prefix:
             # The error is at the end of the proof. No learned prefix.
             # Unfortunately the `unknown tactic` error only reports on the first
