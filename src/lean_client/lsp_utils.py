@@ -37,6 +37,10 @@ def consume_whitespace(s: str) -> ParseResult:
 
 
 def parse_lean_docstring(s: str) -> Optional[str]:
+    """
+    Parses lean docstring (i.e. /-- docstring -/)
+    Consumes leading and trailing whitespace
+    """
     whitespace = consume_whitespace(s)
     if not whitespace.rest.startswith("/--"):
         return None
@@ -49,6 +53,8 @@ def parse_lean_docstring(s: str) -> Optional[str]:
             if num_closing_dashes == 0:
                 doc_str = whitespace.parsed + \
                     whitespace.rest[:3] + rest[: i + 2]
+                trailing_whitespace = consume_whitespace(rest[i + 2:])
+                doc_str += trailing_whitespace.parsed
                 assert s.startswith(doc_str)
                 return doc_str
             else:

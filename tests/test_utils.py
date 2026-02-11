@@ -8,10 +8,19 @@ def test_parse_lean_docstring() -> None:
     docstring_with_whitespace = (
         "   \n  \n/--\nThis is a docstring with leading whitespace\n-/"
     )
-    assert parse_lean_docstring(docstring_with_whitespace) == docstring_with_whitespace
+    assert parse_lean_docstring(
+        docstring_with_whitespace) == docstring_with_whitespace
+
+    docstring_with_trailing_whitespace = (
+        "   \n  \n/--\nThis is a docstring with leading whitespace\n-/\n   \n  \n"
+    )
+    assert parse_lean_docstring(
+        docstring_with_trailing_whitespace) == docstring_with_trailing_whitespace
 
     nested_docstring = "/--\nThis is a docstring with a nested docstring\n/--\nNested docstring\n-/\n-/"
-    assert parse_lean_docstring(nested_docstring) == nested_docstring
+    other_stuff = "This is other stuff after the docstring"
+    assert parse_lean_docstring(
+        nested_docstring + other_stuff) == nested_docstring
 
     no_docstring = "theorem test : True := by trivial"
     assert parse_lean_docstring(no_docstring) is None
