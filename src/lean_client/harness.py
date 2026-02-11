@@ -146,7 +146,13 @@ class Harness:
             return self.theorem_info
         else:
             assert theorem_signature.startswith(theorem_docstring)
-            prefix_with_docstring = self.get_file_prefix() + theorem_docstring
+            thm_start_range = Range(
+                start=Position(line=0, character=0),
+                end=self.theorem_info.range.start
+            )
+            to_theorem_start = get_range_str(
+                self.orig_file_contents, thm_start_range)
+            prefix_with_docstring = to_theorem_start + theorem_docstring
             new_start_pos = str_to_pos(prefix_with_docstring)
             assert self.theorem_info.range.start <= new_start_pos < self.theorem_info.sig_range.start, \
                 f"Expected new start position {new_start_pos} to be between original start {self.theorem_info.range.start} and sig start {self.theorem_info.sig_range.start}"
