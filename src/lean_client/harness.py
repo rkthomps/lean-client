@@ -17,6 +17,7 @@ from lean_client.client import (
     Diagnostic,
     WaitForDiagnosticsRequest,
     WaitForDiagnosticsResponse,
+    TheoremInfo,
 )
 
 from lean_client.instruments import (
@@ -25,7 +26,7 @@ from lean_client.instruments import (
     CommandError,
 )
 
-from lean_client.lsp_utils import get_range_str
+from lean_client.lsp_utils import get_range_str, parse_lean_docstring, str_to_pos
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,8 @@ class Harness:
 
         self.theorem_name = theorem_name
 
-        logger.info(f"Checking that workspace {self.workspace} supports instruments...")
+        logger.info(
+            f"Checking that workspace {self.workspace} supports instruments...")
         with STARTUP_LOCK:
             heartbeat = HeartbeatCommand(workspace=self.workspace)
             if heartbeat.run():
@@ -129,11 +131,33 @@ class Harness:
             self.client.open_file(self.file_uri, self.orig_file_contents)
             response = self.client.send_request(
                 WaitForDiagnosticsRequest(
-                    uri=self.file_uri, version=self.client.file_version(self.file_uri)
+                    uri=self.file_uri, version=self.client.file_version(
+                        self.file_uri)
                 ),
                 timeout=timeout,
             )
             assert isinstance(response, WaitForDiagnosticsResponse)
+
+    @property
+    def no_docstring_info(self) -> TheoremInfo:
+        theorem_signature = self.get_full_theorem_signature()
+        theorem_docstring = parse_lean_docstring(theorem_signature)
+        if theorem_docstring is None:
+            return self.theorem_info
+        else:
+            assert theorem_signature.startswith(theorem_docstring)
+            prefix_with_docstring = self.get_file_prefix() + theorem_docstring
+            new_start_pos = str_to_pos(prefix_with_docstring)
+            assert self.theorem_info.range.start <= new_start_pos < self.theorem_info.sig_range.start
+            new_range = Range(
+                start=new_start_pos, end=self.theorem_info.range.end
+            )
+            return TheoremInfo(
+                name=self.theorem_info.name,
+                range=new_range,
+                sig_range=self.theorem_info.sig_range,
+                val_range=self.theorem_info.val_range,
+            )
 
     @property
     def file(self) -> Path:
@@ -188,7 +212,8 @@ class Harness:
         proof_diagnostics = [
             d for d in latest_diags if self.theorem_info.range.start <= d.range.end
         ]
-        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
+        proof_error_diagnostics = [
+            d for d in proof_diagnostics if d.severity == 1]
         return proof_error_diagnostics
 
     def check_proof(
@@ -223,7 +248,8 @@ class Harness:
             """
             return ProofFailedResult(diagnostics=proof_diagnostics)
 
-        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
+        proof_error_diagnostics = [
+            d for d in proof_diagnostics if d.severity == 1]
         if len(proof_error_diagnostics) == 0:
             return ProofSucceededResult()
         else:
