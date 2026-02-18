@@ -237,7 +237,9 @@ class Harness:
             # This is unfortunate
             return None
 
-        error_end_pos = error.range.end  # Might have to add one
+        error_end_pos = Position(
+            line=error.range.end.line, character=error.range.end.character + 1
+        )
         error_end_str = get_range_str(
             file_contents, Range(start=Position(line=0, character=0), end=error_end_pos)
         )
