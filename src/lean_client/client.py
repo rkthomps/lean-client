@@ -790,9 +790,17 @@ class LeanClient:
         response_data = self.read_message(response_ty=response_ty, block=True)
         if response_data is not None:
             logging.debug(f"Initial read message: {response_data}")
-        while response_data is None or isinstance(response_data, ServerNotification):
+        # while response_data is None or isinstance(response_data, ServerNotification):
+        while True:
             if isinstance(response_data, DiagnosticsNotification):
                 self.latest_diagnostics[response_data.uri] = response_data
+            if isinstance(response_data, Response):
+                if response_data.id == self.request_id:
+                    return response_data
+                else:
+                    logging.warning(
+                        f"Received response with id {response_data.id} but expected {self.request_id}"
+                    )
             response_data = self.read_message(response_ty=response_ty, block=True)
             if response_data is not None:
                 logging.debug(f"Read message: {response_data}")
@@ -800,9 +808,6 @@ class LeanClient:
                 raise TimeoutError(
                     f"Timed out waiting for response to {request.method()}"
                 )
-
-        assert response_data.id == self.request_id
-        return response_data
 
     @classmethod
     def start(cls, workspace: Path) -> "LeanClient":
