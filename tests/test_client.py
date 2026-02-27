@@ -90,11 +90,10 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
         pytest.fail(str(build_projects))
 
     uri = INSTR_PROJ_LOC.resolve().as_uri()
-    client = LeanClient.start(INSTR_PROJ_LOC, instrument_server=True)
-    file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
-    # file = INSTR_PROJ_LOC / "LeanInstrProj" / "Harness.lean"
-    file_uri = file.resolve().as_uri()
-    try:
+    with LeanClient.start(INSTR_PROJ_LOC, instrument_server=True) as client:
+        file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
+        # file = INSTR_PROJ_LOC / "LeanInstrProj" / "Harness.lean"
+        file_uri = file.resolve().as_uri()
         client.open_file(file_uri, file.read_text())
         wait_request = WaitForDiagnosticsRequest(
             uri=file_uri, version=client.file_version(file_uri)
@@ -108,8 +107,6 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
         assert isinstance(response, FindTheoremsResponse)
         assert len(response.theorems) == 1
         assert response.theorems[0].name == "rat_to_float"
-    finally:
-        client.shutdown()
 
 
 if __name__ == "__main__":

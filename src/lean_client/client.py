@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import TracebackType
 from typing import Any, Optional, IO
 
 import os
@@ -854,3 +855,15 @@ class LeanClient:
         client.send_notification(InitializedNotification())
         logging.debug("Sent initialized notification.")
         return client
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.shutdown()
