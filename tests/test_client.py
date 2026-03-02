@@ -110,4 +110,6 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
 
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
     test_batteries_document_symbol_request(None)

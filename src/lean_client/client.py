@@ -633,18 +633,24 @@ class LeanClient:
             command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=sys.stderr,
+            stderr=subprocess.PIPE,
             text=False,
             bufsize=0,
             env=copy_env,
             cwd=work_dir,
             start_new_session=True,
         )
-        self.process.stdout
         self.request_id = 0
         self.lock = threading.Lock()
+        self._stderr_thread = threading.Thread(target=self._read_stderr_loop, daemon=True)
+        self._stderr_thread.start()
         self.managed_files: dict[str, int] = {}  # uri -> version
         self.latest_diagnostics: dict[str, DiagnosticsNotification] = {}
+    
+    def _read_stderr_loop(self):
+        assert self.process.stderr is not None, "Process stderr is none."
+        for line in self.process.stderr:
+            logger.info(f"Lean stderr: {line.decode('utf-8', errors='replace').rstrip()}")
 
     def open_file(self, uri: str, text: str, language_id: str = "lean4"):
         assert uri not in self.managed_files, f"File {uri} is already open."
@@ -759,7 +765,7 @@ class LeanClient:
         while True:
             message = self.read_message(response_ty=None, block=False)
             if message is not None:
-                logging.debug(f"Read message: {message}")
+                logger.debug(f"Read message: {message}")
             if message is None:
                 break
             if isinstance(message, DiagnosticsNotification):
@@ -797,8 +803,8 @@ class LeanClient:
         )
         with self.lock:
             assert self.process.stdin is not None, "Process stdin is none."
-            logging.debug("=== Sending message to Lean stdin ===")
-            logging.debug(full_message.decode("utf-8", errors="replace"))
+            logger.debug("=== Sending message to Lean stdin ===")
+            logger.debug(full_message.decode("utf-8", errors="replace"))
             self.process.stdin.write(full_message)
             self.process.stdin.flush()
 
@@ -829,13 +835,13 @@ class LeanClient:
         response_ty = get_response_ty(request)
         response_data = self.read_message(response_ty=response_ty, block=True)
         if response_data is not None:
-            logging.debug(f"Initial read message: {response_data}")
+            logger.debug(f"Initial read message: {response_data}")
         while response_data is None or isinstance(response_data, ServerNotification):
             if isinstance(response_data, DiagnosticsNotification):
                 self.latest_diagnostics[response_data.uri] = response_data
             response_data = self.read_message(response_ty=response_ty, block=True)
             if response_data is not None:
-                logging.debug(f"Read message: {response_data}")
+                logger.debug(f"Read message: {response_data}")
             if time.time() - start > timeout:
                 raise TimeoutError(
                     f"Timed out waiting for response to {request.method()}"
@@ -847,13 +853,13 @@ class LeanClient:
     @classmethod
     def start(cls, workspace: Path, instrument_server: bool = False) -> "LeanClient":
         client = cls(workspace, instrument_server=instrument_server)
-        logging.debug("Starting Lean client...")
+        logger.debug("Starting Lean client...")
         workspace_uri = workspace.resolve().as_uri()
         client.send_request(InitializeRequest(root_uri=workspace_uri))
-        logging.debug("Sent initialize request.")
+        logger.debug("Sent initialize request.")
         time.sleep(0.5)
         client.send_notification(InitializedNotification())
-        logging.debug("Sent initialized notification.")
+        logger.debug("Sent initialized notification.")
         return client
 
 

@@ -111,3 +111,9 @@ def test_proof_bat_result(build_projects: Optional[BuildError]) -> None:
             == "theorem bat (a b : Nat) : a + b = b + a"
         )
         assert harness.get_type_signature() == "(a b : Nat) : a + b = b + a"
+
+
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    test_proof_bat_result(None)
