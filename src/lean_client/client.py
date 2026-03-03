@@ -12,6 +12,7 @@ import signal
 
 import subprocess
 import threading
+import queue
 import logging
 
 from subprocess import TimeoutExpired
@@ -573,6 +574,8 @@ def read_exactly(stream: IO[bytes], n: int) -> bytes:
         if not chunk:  # EOF
             break
         data.extend(chunk)
+    if len(data) < n:
+        raise EOFError(f"Expected {n} bytes, got {len(data)} bytes before EOF.")
     return bytes(data)
 
 
@@ -584,16 +587,19 @@ def read_lsp_message_header(stream: IO[bytes]) -> int:
     content_length = None
     while True:
         line = stream.readline().decode("utf-8")
-        if not line.strip():  # empty line: end of headers
+        if not line.strip() and content_length:  # empty line: end of headers
             break
         match = re.match(r"Content-Length:\s*(\d+)", line)
         if match:
             (content_length_str,) = match.groups()
             content_length = int(content_length_str)
-    if content_length is None:
-        raise ValueError(
-            f"No Content-Length header found. Got headers:\n{line}; {len(line)}"
-        )
+        else:
+            # logger.info(f"Skipping non-Content-Length header: {line.strip()}")
+            continue
+    # if content_length is None:
+    #     raise ValueError(
+    #         f"No Content-Length header found. Got headers:\n{line}; {len(line)}"
+    #     )
     return content_length
 
 
@@ -644,6 +650,9 @@ class LeanClient:
         self.lock = threading.Lock()
         self._stderr_thread = threading.Thread(target=self._read_stderr_loop, daemon=True)
         self._stderr_thread.start()
+        self._msg_queue: queue.Queue[Any] = queue.Queue()
+        self._stdout_thread = threading.Thread(target=self._read_stdout_loop, daemon=True)
+        self._stdout_thread.start()
         self.managed_files: dict[str, int] = {}  # uri -> version
         self.latest_diagnostics: dict[str, DiagnosticsNotification] = {}
     
@@ -651,6 +660,19 @@ class LeanClient:
         assert self.process.stderr is not None, "Process stderr is none."
         for line in self.process.stderr:
             logger.info(f"Lean stderr: {line.decode('utf-8', errors='replace').rstrip()}")
+    
+    def _read_stdout_loop(self):
+        assert self.process.stdout is not None, "Process stdout is none."
+        while True:
+            try:
+                content_length = read_lsp_message_header(self.process.stdout)
+                response = read_exactly(self.process.stdout, content_length)
+                message = json.loads(response)
+                self._msg_queue.put(message)
+            except Exception as e:
+                logger.exception(f"Error reading from stdout: {e}")
+                break
+
 
     def open_file(self, uri: str, text: str, language_id: str = "lean4"):
         assert uri not in self.managed_files, f"File {uri} is already open."
@@ -689,17 +711,17 @@ class LeanClient:
         self.send_notification(change_notification)
         return new_version
 
-    def get_file_diagnostics(self, uri: str) -> Optional[DiagnosticsNotification]:
+    def get_file_diagnostics(self, uri: str, timeout: float) -> Optional[DiagnosticsNotification]:
         """
         Returns the latest diagnostics and version for the given file, if any.
         """
-        self.update_diagnostics()
+        self.update_diagnostics(timeout)
         return self.latest_diagnostics.get(uri, None)
 
     def wait_for_register(self, timeout: float = 5.0):
         start = time.time()
         while True:
-            message = self.read_message(response_ty=None, block=False)
+            message = self.read_message(response_ty=None, block=False, timeout=timeout)
             if isinstance(message, RegisterCapabilityNotification):
                 return
             if time.time() - start > timeout:
@@ -717,7 +739,7 @@ class LeanClient:
         total_wait = 0.0
         wait_interval = 0.1
         while total_wait < timeout:
-            self.update_diagnostics()
+            self.update_diagnostics(timeout=wait_interval)
             if uri in self.latest_diagnostics:
                 diag = self.latest_diagnostics[uri]
                 if diag.version == self.managed_files[uri]:
@@ -728,42 +750,37 @@ class LeanClient:
             f"Timed out waiting for diagnostics for {uri} version {self.managed_files[uri]}"
         )
 
-    def read_err(self) -> Optional[str]:
-        while True:
-            assert self.process.stderr is not None, "Process stderr is none."
-            ready, _, _ = select.select([self.process.stderr], [], [], 0.1)
-            if not ready:
-                return None
-            line = self.process.stderr.readline().decode()
-            if not line.strip():
-                break
-            logger.error(f"Lean stderr: {line}")
-            return line
+    # def read_err(self) -> Optional[str]:
+    #     while True:
+    #         assert self.process.stderr is not None, "Process stderr is none."
+    #         ready, _, _ = select.select([self.process.stderr], [], [], 0.1)
+    #         if not ready:
+    #             return None
+    #         line = self.process.stderr.readline().decode()
+    #         if not line.strip():
+    #             break
+    #         logger.error(f"Lean stderr: {line}")
+    #         return line
 
     def read_message(
-        self, response_ty: Optional[type[Response]], block: bool
+        self, response_ty: Optional[type[Response]], block: bool, timeout: float
     ) -> Optional[ServerNotification | Response]:
-        while True:
-            assert self.process.stdout is not None, "Process stdout is none."
-            ready, _, _ = select.select([self.process.stdout], [], [], 0.1)
-            if not ready and not block:
+        try:
+            msg = self._msg_queue.get(timeout=timeout, block=block)
+            if "method" in msg:
+                return read_notification(msg)
+            elif response_ty is not None and "id" in msg:
+                return response_ty.from_response(msg)
+            else:
+                logger.warning(f"Received message that is neither notification nor response: {msg}")
                 return None
+        except queue.Empty:
+            return None
 
-            content_length = read_lsp_message_header(self.process.stdout)
-            response = read_exactly(self.process.stdout, content_length)
-            assert (
-                len(response) == content_length
-            ), f"Expected {content_length} bytes, got {len(response)} bytes."
-            message = json.loads(response)
 
-            if "method" in message:
-                return read_notification(message)
-            elif response_ty is not None and "id" in message:
-                return response_ty.from_response(message)
-
-    def update_diagnostics(self):
+    def update_diagnostics(self, timeout: float):
         while True:
-            message = self.read_message(response_ty=None, block=False)
+            message = self.read_message(response_ty=None, block=False, timeout=timeout)
             if message is not None:
                 logger.debug(f"Read message: {message}")
             if message is None:
@@ -833,13 +850,13 @@ class LeanClient:
 
         start = time.time()
         response_ty = get_response_ty(request)
-        response_data = self.read_message(response_ty=response_ty, block=True)
+        response_data = self.read_message(response_ty=response_ty, block=True, timeout=timeout)
         if response_data is not None:
             logger.debug(f"Initial read message: {response_data}")
         while response_data is None or isinstance(response_data, ServerNotification):
             if isinstance(response_data, DiagnosticsNotification):
                 self.latest_diagnostics[response_data.uri] = response_data
-            response_data = self.read_message(response_ty=response_ty, block=True)
+            response_data = self.read_message(response_ty=response_ty, block=True, timeout=timeout)
             if response_data is not None:
                 logger.debug(f"Read message: {response_data}")
             if time.time() - start > timeout:
