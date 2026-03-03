@@ -750,18 +750,6 @@ class LeanClient:
             f"Timed out waiting for diagnostics for {uri} version {self.managed_files[uri]}"
         )
 
-    # def read_err(self) -> Optional[str]:
-    #     while True:
-    #         assert self.process.stderr is not None, "Process stderr is none."
-    #         ready, _, _ = select.select([self.process.stderr], [], [], 0.1)
-    #         if not ready:
-    #             return None
-    #         line = self.process.stderr.readline().decode()
-    #         if not line.strip():
-    #             break
-    #         logger.error(f"Lean stderr: {line}")
-    #         return line
-
     def read_message(
         self, response_ty: Optional[type[Response]], block: bool, timeout: float
     ) -> Optional[ServerNotification | Response]:
@@ -850,22 +838,21 @@ class LeanClient:
 
         start = time.time()
         response_ty = get_response_ty(request)
-        response_data = self.read_message(response_ty=response_ty, block=True, timeout=timeout)
-        if response_data is not None:
-            logger.debug(f"Initial read message: {response_data}")
-        while response_data is None or isinstance(response_data, ServerNotification):
+        while True:
+            response_data = self.read_message(response_ty=response_ty, block=True, timeout=timeout)
             if isinstance(response_data, DiagnosticsNotification):
                 self.latest_diagnostics[response_data.uri] = response_data
-            response_data = self.read_message(response_ty=response_ty, block=True, timeout=timeout)
-            if response_data is not None:
-                logger.debug(f"Read message: {response_data}")
+            if isinstance(response_data, Response):
+                if response_data.id != self.request_id:
+                    logger.warning(
+                        f"Received response with id {response_data.id} but expected {self.request_id}. Ignoring."
+                    )
+                    continue
+                return response_data
             if time.time() - start > timeout:
                 raise TimeoutError(
                     f"Timed out waiting for response to {request.method()}"
                 )
-
-        assert response_data.id == self.request_id
-        return response_data
 
     @classmethod
     def start(cls, workspace: Path, instrument_server: bool = False) -> "LeanClient":
