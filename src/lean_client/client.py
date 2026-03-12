@@ -648,19 +648,25 @@ class LeanClient:
         )
         self.request_id = 0
         self.lock = threading.Lock()
-        self._stderr_thread = threading.Thread(target=self._read_stderr_loop, daemon=True)
+        self._stderr_thread = threading.Thread(
+            target=self._read_stderr_loop, daemon=True
+        )
         self._stderr_thread.start()
         self._msg_queue: queue.Queue[Any] = queue.Queue()
-        self._stdout_thread = threading.Thread(target=self._read_stdout_loop, daemon=True)
+        self._stdout_thread = threading.Thread(
+            target=self._read_stdout_loop, daemon=True
+        )
         self._stdout_thread.start()
         self.managed_files: dict[str, int] = {}  # uri -> version
         self.latest_diagnostics: dict[str, DiagnosticsNotification] = {}
-    
+
     def _read_stderr_loop(self):
         assert self.process.stderr is not None, "Process stderr is none."
         for line in self.process.stderr:
-            logger.info(f"Lean stderr: {line.decode('utf-8', errors='replace').rstrip()}")
-    
+            logger.info(
+                f"Lean stderr: {line.decode('utf-8', errors='replace').rstrip()}"
+            )
+
     def _read_stdout_loop(self):
         assert self.process.stdout is not None, "Process stdout is none."
         while True:
@@ -670,9 +676,11 @@ class LeanClient:
                 message = json.loads(response)
                 self._msg_queue.put(message)
             except Exception as e:
-                logger.exception(f"Error reading from stdout: {e}")
-                break
-
+                if "closed file" in str(e).lower():
+                    logger.info("Lean stdout closed, exiting read loop.")
+                    return
+                else:
+                    logger.exception(f"Error reading from stdout: {e}")
 
     def open_file(self, uri: str, text: str, language_id: str = "lean4"):
         assert uri not in self.managed_files, f"File {uri} is already open."
@@ -711,7 +719,9 @@ class LeanClient:
         self.send_notification(change_notification)
         return new_version
 
-    def get_file_diagnostics(self, uri: str, timeout: float) -> Optional[DiagnosticsNotification]:
+    def get_file_diagnostics(
+        self, uri: str, timeout: float
+    ) -> Optional[DiagnosticsNotification]:
         """
         Returns the latest diagnostics and version for the given file, if any.
         """
@@ -760,11 +770,12 @@ class LeanClient:
             elif response_ty is not None and "id" in msg:
                 return response_ty.from_response(msg)
             else:
-                logger.warning(f"Received message that is neither notification nor response: {msg}")
+                logger.warning(
+                    f"Received message that is neither notification nor response: {msg}"
+                )
                 return None
         except queue.Empty:
             return None
-
 
     def update_diagnostics(self, timeout: float):
         while True:
@@ -783,6 +794,12 @@ class LeanClient:
         self.send_notification(ExitNotification())
         if self.process.stdin is not None:
             self.process.stdin.close()
+        if self.process.stdout is not None:
+            self.process.stdout.close()
+        if self.process.stderr is not None:
+            self.process.stderr.close()
+        self._stderr_thread.join(timeout=10)
+        self._stdout_thread.join(timeout=10)
         try:
             pgid = os.getpgid(self.process.pid)
             os.killpg(pgid, signal.SIGTERM)
@@ -839,7 +856,9 @@ class LeanClient:
         start = time.time()
         response_ty = get_response_ty(request)
         while True:
-            response_data = self.read_message(response_ty=response_ty, block=True, timeout=timeout)
+            response_data = self.read_message(
+                response_ty=response_ty, block=True, timeout=timeout
+            )
             if isinstance(response_data, DiagnosticsNotification):
                 self.latest_diagnostics[response_data.uri] = response_data
             if isinstance(response_data, Response):
@@ -865,7 +884,6 @@ class LeanClient:
         client.send_notification(InitializedNotification())
         logger.debug("Sent initialized notification.")
         return client
-
 
     def __enter__(self):
         return self
