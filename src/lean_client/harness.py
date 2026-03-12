@@ -127,7 +127,7 @@ class Harness:
                     "Not yet implemented: keeping the original proof."
                 )
 
-            self.client = LeanClient.start(self.workspace)
+            self.client = LeanClient.start(self.workspace, timeout=timeout)
             self.client.open_file(self.file_uri, self.orig_file_contents)
             response = self.client.send_request(
                 WaitForDiagnosticsRequest(

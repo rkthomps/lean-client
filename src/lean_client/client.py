@@ -855,11 +855,11 @@ class LeanClient:
                 )
 
     @classmethod
-    def start(cls, workspace: Path, instrument_server: bool = False) -> "LeanClient":
+    def start(cls, workspace: Path, instrument_server: bool = False, timeout: float = 10.0) -> "LeanClient":
         client = cls(workspace, instrument_server=instrument_server)
         logger.debug("Starting Lean client...")
         workspace_uri = workspace.resolve().as_uri()
-        client.send_request(InitializeRequest(root_uri=workspace_uri))
+        client.send_request(InitializeRequest(root_uri=workspace_uri), timeout=timeout)
         logger.debug("Sent initialize request.")
         time.sleep(0.5)
         client.send_notification(InitializedNotification())
