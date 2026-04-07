@@ -116,20 +116,27 @@ class Range(BaseModel):
             end=Position.from_response(data["end"]),
         )
 
+class TacticInfo(BaseModel):
+    name: str
+    kind: str
+
 
 class TheoremInfo(BaseModel):
     name: str
     range: Range
     sig_range: Range
     val_range: Range
+    bag_of_tactics: Optional[list[TacticInfo]] = None
 
     @classmethod
     def from_lean_dict(cls, data: Any) -> "TheoremInfo":
+        bag_of_tactics = [TacticInfo.model_validate(t) for t in data["bagOfTactics"]] if "bagOfTactics" in data else None
         return cls(
             name=data["name"],
             range=Range.model_validate(data["range"]),
             sig_range=Range.model_validate(data["sigRange"]),
             val_range=Range.model_validate(data["valRange"]),
+            bag_of_tactics=bag_of_tactics,
         )
 
 

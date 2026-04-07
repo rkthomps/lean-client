@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "0a7d0b59b727a8fb69339ee657fd702cec2f4194",
+   "rev": "b22814f9b70e2d8964a2fef016d682d7d6b47c8b",
    "name": "«llm-instruments»",
    "manifestFile": "lake-manifest.json",
    "inputRev": "mod-lsp-4.10",

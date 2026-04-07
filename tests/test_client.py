@@ -33,7 +33,7 @@ def bar : Nat := 0
 @dataclass
 class DummyClient:
     def __init__(self):
-        self.client = LeanClient.start(self.workspace, instrument_server=False)
+        self.client = LeanClient.start(self.workspace, instrument_server=False, timeout=30)
 
     @property
     def workspace(self) -> Path:
@@ -58,15 +58,6 @@ class DummyClient:
         self.client.shutdown()
 
 
-# def test_is_proved():
-#     with DummyClient() as dc:
-#         dc.client.open_file(dc.dummy_uri, DUMMY_TEXT)
-#         diags = get_per_theorem_errors(dc.client, dc.dummy_uri, DUMMY_TEXT, None)
-#         print(dc.client.latest_diagnostics)
-#         assert "foo" in diags
-#         ts = diags["foo"]
-#         bad_diags = [d for d in ts.diagnostics if d.severity == 1]
-#         assert len(bad_diags) == 1
 
 
 def test_find_theorems_request():
@@ -77,12 +68,6 @@ def test_find_theorems_request():
         )
         wait_response = dc.client.send_request(wait_request)
         assert isinstance(wait_response, WaitForDiagnosticsResponse)
-        # request = FindTheoremsRequest(uri=dc.dummy_uri)
-        # response = dc.client.send_request(request)
-        # assert isinstance(response, FindTheoremsResponse)
-        # assert len(response.symbols) == 2
-        # assert response.symbols[0].name == "foo"
-        # assert response.symbols[1].name == "bar"
 
 
 def test_batteries_document_symbol_request(build_projects: Optional[BuildError]):
@@ -90,7 +75,7 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
         pytest.fail(str(build_projects))
 
     uri = INSTR_PROJ_LOC.resolve().as_uri()
-    with LeanClient.start(INSTR_PROJ_LOC, instrument_server=True) as client:
+    with LeanClient.start(INSTR_PROJ_LOC, instrument_server=True, timeout=30) as client:
         file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
         # file = INSTR_PROJ_LOC / "LeanInstrProj" / "Harness.lean"
         file_uri = file.resolve().as_uri()
