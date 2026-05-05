@@ -158,6 +158,7 @@ class TheoremInfo(BaseModel):
     sig_range: Range
     val_range: Range
     bag_of_tactics: Optional[list[TacticInfo]] = None
+    num_expands: Optional[int] = None
     samples: Optional[list[ProofSample]] = None
 
     @classmethod
@@ -167,6 +168,7 @@ class TheoremInfo(BaseModel):
             if "bagOfTactics" in data
             else None
         )
+        num_expands = data.get("numExpands")
         samples = (
             [ProofSample.from_lean_dict(s) for s in data["samples"]]
             if "samples" in data
@@ -178,6 +180,7 @@ class TheoremInfo(BaseModel):
             sig_range=Range.model_validate(data["sigRange"]),
             val_range=Range.model_validate(data["valRange"]),
             bag_of_tactics=bag_of_tactics,
+            num_expands=num_expands,
             samples=samples,
         )
 
