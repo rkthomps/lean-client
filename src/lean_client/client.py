@@ -116,9 +116,40 @@ class Range(BaseModel):
             end=Position.from_response(data["end"]),
         )
 
+
 class TacticInfo(BaseModel):
     name: str
     kind: str
+
+
+class ProofSampleArguments(BaseModel):
+    expand_proportion: float
+    depth_weight: float
+    temperature: float
+    seed: int
+
+    @classmethod
+    def from_lean_dict(cls, data: Any) -> "ProofSampleArguments":
+        return cls(
+            expand_proportion=data["expandProportion"],
+            depth_weight=data["depthWeight"],
+            temperature=data["temperature"],
+            seed=data["seed"],
+        )
+
+
+class ProofSample(BaseModel):
+    ground_truth: str
+    sample: str
+    arguments: ProofSampleArguments
+
+    @classmethod
+    def from_lean_dict(cls, data: Any) -> "ProofSample":
+        return cls(
+            ground_truth=data["groundTruth"],
+            sample=data["sample"],
+            arguments=ProofSampleArguments.from_lean_dict(data["arguments"]),
+        )
 
 
 class TheoremInfo(BaseModel):
@@ -127,16 +158,27 @@ class TheoremInfo(BaseModel):
     sig_range: Range
     val_range: Range
     bag_of_tactics: Optional[list[TacticInfo]] = None
+    samples: Optional[list[ProofSample]] = None
 
     @classmethod
     def from_lean_dict(cls, data: Any) -> "TheoremInfo":
-        bag_of_tactics = [TacticInfo.model_validate(t) for t in data["bagOfTactics"]] if "bagOfTactics" in data else None
+        bag_of_tactics = (
+            [TacticInfo.model_validate(t) for t in data["bagOfTactics"]]
+            if "bagOfTactics" in data
+            else None
+        )
+        samples = (
+            [ProofSample.from_lean_dict(s) for s in data["samples"]]
+            if "samples" in data
+            else None
+        )
         return cls(
             name=data["name"],
             range=Range.model_validate(data["range"]),
             sig_range=Range.model_validate(data["sigRange"]),
             val_range=Range.model_validate(data["valRange"]),
             bag_of_tactics=bag_of_tactics,
+            samples=samples,
         )
 
 
@@ -881,7 +923,9 @@ class LeanClient:
                 )
 
     @classmethod
-    def start(cls, workspace: Path, instrument_server: bool = False, timeout: float = 10.0) -> "LeanClient":
+    def start(
+        cls, workspace: Path, instrument_server: bool = False, timeout: float = 10.0
+    ) -> "LeanClient":
         client = cls(workspace, instrument_server=instrument_server)
         logger.debug("Starting Lean client...")
         workspace_uri = workspace.resolve().as_uri()

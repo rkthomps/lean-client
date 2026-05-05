@@ -40,25 +40,28 @@ def test_theorem_info(build_projects: Optional[BuildError]) -> None:
 
     if isinstance(result, CommandError):
         pytest.fail(f"TheoremInfoCommand failed: {result}")
-    
+
     assert len(result) == 3
     assert result[0].name == "Cat.Cherry.cat"
     assert result[0].range == Range.from_str("21:0-22:9")
     assert result[0].sig_range == Range.from_str("21:17-21:31")
     assert result[0].val_range == Range.from_str("21:32-22:9")
     assert result[0].bag_of_tactics is not None and len(result[0].bag_of_tactics) > 0
+    assert result[0].samples is not None and len(result[0].samples) > 0
 
     assert result[1].name == "foo"
     assert result[1].range == Range.from_str("26:0-27:9")
     assert result[1].sig_range == Range.from_str("26:12-26:18")
     assert result[1].val_range == Range.from_str("26:19-27:9")
     assert result[1].bag_of_tactics is not None and len(result[1].bag_of_tactics) > 0
+    assert result[1].samples is not None and len(result[1].samples) > 0
 
     assert result[2].name == "bar"
     assert result[2].range == Range.from_str("30:0-31:7")
     assert result[2].sig_range == Range.from_str("30:12-30:19")
     assert result[2].val_range == Range.from_str("30:20-31:7")
     assert result[2].bag_of_tactics is not None
+    assert result[2].samples is not None and len(result[2].samples) > 0
 
 
 if __name__ == "__main__":
