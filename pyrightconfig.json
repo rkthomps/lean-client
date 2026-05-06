@@ -15,7 +15,8 @@
         "**/dist"
     ],
     "include": [
-        "src"
+        "src",
+        "tests"
     ],
     "venvPath": ".",
     "venv": ".venv"
