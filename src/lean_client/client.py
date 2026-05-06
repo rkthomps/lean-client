@@ -700,6 +700,7 @@ class LeanClient:
         )
         self.request_id = 0
         self.lock = threading.Lock()
+        self._shutting_down = False
         self._stderr_thread = threading.Thread(
             target=self._read_stderr_loop, daemon=True
         )
@@ -728,11 +729,11 @@ class LeanClient:
                 message = json.loads(response)
                 self._msg_queue.put(message)
             except Exception as e:
-                if "closed file" in str(e).lower():
+                if self._shutting_down:
                     logger.info("Lean stdout closed, exiting read loop.")
-                    return
                 else:
                     logger.exception(f"Error reading from stdout: {e}")
+                return
 
     def open_file(self, uri: str, text: str, language_id: str = "lean4"):
         assert uri not in self.managed_files, f"File {uri} is already open."
@@ -844,6 +845,7 @@ class LeanClient:
         logger.info("Shutting down Lean client...")
         self.send_request(ShutdownRequest(), timeout=60.0)
         self.send_notification(ExitNotification())
+        self._shutting_down = True
         if self.process.stdin is not None:
             self.process.stdin.close()
         if self.process.stdout is not None:
