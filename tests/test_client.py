@@ -1,8 +1,6 @@
 from typing import Optional
 from dataclasses import dataclass
-from http import client
 from pathlib import Path
-import textwrap
 import logging
 from typing import Any
 
@@ -33,7 +31,9 @@ def bar : Nat := 0
 @dataclass
 class DummyClient:
     def __init__(self):
-        self.client = LeanClient.start(self.workspace, instrument_server=False, timeout=30)
+        self.client = LeanClient.start(
+            self.workspace, instrument_server=False, timeout=30
+        )
 
     @property
     def workspace(self) -> Path:
@@ -58,8 +58,6 @@ class DummyClient:
         self.client.shutdown()
 
 
-
-
 def test_find_theorems_request():
     with DummyClient() as dc:
         dc.client.open_file(dc.dummy_uri, DUMMY_TEXT)
@@ -74,7 +72,7 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
     if build_projects is not None:
         pytest.fail(str(build_projects))
 
-    uri = INSTR_PROJ_LOC.resolve().as_uri()
+    # uri = INSTR_PROJ_LOC.resolve().as_uri()
     with LeanClient.start(INSTR_PROJ_LOC, instrument_server=True, timeout=30) as client:
         file = INSTR_PROJ_LOC / "LeanInstrProj" / "BatteryStuff.lean"
         # file = INSTR_PROJ_LOC / "LeanInstrProj" / "Harness.lean"
@@ -96,5 +94,6 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.INFO)
     test_batteries_document_symbol_request(None)

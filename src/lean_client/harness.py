@@ -18,6 +18,7 @@ from lean_client.client import (
     WaitForDiagnosticsRequest,
     WaitForDiagnosticsResponse,
     TheoremInfo,
+    ProofSampleArguments,
 )
 
 from lean_client.instruments import (
@@ -56,6 +57,7 @@ class Harness:
         theorem_name: str,
         clear_proof: bool = True,
         clear_file_proofs: bool = False,
+        proof_sample_args: Optional[list[ProofSampleArguments]] = None,
         timeout: float = 120,
     ):
         """
@@ -84,8 +86,7 @@ class Harness:
 
         self.theorem_name = theorem_name
 
-        logger.info(
-            f"Checking that workspace {self.workspace} supports instruments...")
+        logger.info(f"Checking that workspace {self.workspace} supports instruments...")
         with STARTUP_LOCK:
             heartbeat = HeartbeatCommand(workspace=self.workspace)
             if heartbeat.run():
@@ -93,7 +94,9 @@ class Harness:
                     f"Finding theorem info for {theorem_name} in file {self.file}..."
                 )
                 info_command = TheoremInfoCommand(
-                    workspace=self.workspace, rel_filepath=self.relfile
+                    workspace=self.workspace,
+                    rel_filepath=self.relfile,
+                    samples=proof_sample_args or [],
                 )
                 theorem_infos = info_command.run()
                 if isinstance(theorem_infos, CommandError):
@@ -131,8 +134,7 @@ class Harness:
             self.client.open_file(self.file_uri, self.orig_file_contents)
             response = self.client.send_request(
                 WaitForDiagnosticsRequest(
-                    uri=self.file_uri, version=self.client.file_version(
-                        self.file_uri)
+                    uri=self.file_uri, version=self.client.file_version(self.file_uri)
                 ),
                 timeout=timeout,
             )
@@ -147,18 +149,17 @@ class Harness:
         else:
             assert theorem_signature.startswith(theorem_docstring)
             thm_start_range = Range(
-                start=Position(line=0, character=0),
-                end=self.theorem_info.range.start
+                start=Position(line=0, character=0), end=self.theorem_info.range.start
             )
-            to_theorem_start = get_range_str(
-                self.orig_file_contents, thm_start_range)
+            to_theorem_start = get_range_str(self.orig_file_contents, thm_start_range)
             prefix_with_docstring = to_theorem_start + theorem_docstring
             new_start_pos = str_to_pos(prefix_with_docstring)
-            assert self.theorem_info.range.start <= new_start_pos < self.theorem_info.sig_range.start, \
-                f"Expected new start position {new_start_pos} to be between original start {self.theorem_info.range.start} and sig start {self.theorem_info.sig_range.start}"
-            new_range = Range(
-                start=new_start_pos, end=self.theorem_info.range.end
-            )
+            assert (
+                self.theorem_info.range.start
+                <= new_start_pos
+                < self.theorem_info.sig_range.start
+            ), f"Expected new start position {new_start_pos} to be between original start {self.theorem_info.range.start} and sig start {self.theorem_info.sig_range.start}"
+            new_range = Range(start=new_start_pos, end=self.theorem_info.range.end)
             return TheoremInfo(
                 name=self.theorem_info.name,
                 range=new_range,
@@ -219,8 +220,7 @@ class Harness:
         proof_diagnostics = [
             d for d in latest_diags if self.theorem_info.range.start <= d.range.end
         ]
-        proof_error_diagnostics = [
-            d for d in proof_diagnostics if d.severity == 1]
+        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
         return proof_error_diagnostics
 
     def check_proof(
@@ -255,8 +255,7 @@ class Harness:
             """
             return ProofFailedResult(diagnostics=proof_diagnostics)
 
-        proof_error_diagnostics = [
-            d for d in proof_diagnostics if d.severity == 1]
+        proof_error_diagnostics = [d for d in proof_diagnostics if d.severity == 1]
         if len(proof_error_diagnostics) == 0:
             return ProofSucceededResult()
         else:

@@ -4,10 +4,8 @@ from typing import Any, Optional, IO
 
 import os
 import re
-import sys
 import time
 import json
-import select
 import signal
 
 import subprocess
@@ -128,6 +126,14 @@ class ProofSampleArguments(BaseModel):
     temperature: float
     seed: int
 
+    def to_lean_dict(self) -> dict[str, Any]:
+        return {
+            "expandProportion": self.expand_proportion,
+            "depthWeight": self.depth_weight,
+            "temperature": self.temperature,
+            "seed": self.seed,
+        }
+
     @classmethod
     def from_lean_dict(cls, data: Any) -> "ProofSampleArguments":
         return cls(
@@ -135,6 +141,26 @@ class ProofSampleArguments(BaseModel):
             depth_weight=data["depthWeight"],
             temperature=data["temperature"],
             seed=data["seed"],
+        )
+
+    @classmethod
+    def depth(cls, p: float) -> "ProofSampleArguments":
+        assert 0 <= p <= 1, "Expand proportion must be between 0 and 1."
+        return cls(
+            expand_proportion=p,
+            depth_weight=1.0,
+            temperature=0.0,
+            seed=0,
+        )
+
+    @classmethod
+    def breadth(cls, p: float) -> "ProofSampleArguments":
+        assert 0 <= p <= 1, "Expand proportion must be between 0 and 1."
+        return cls(
+            expand_proportion=p,
+            depth_weight=-1.0,
+            temperature=0.0,
+            seed=0,
         )
 
 

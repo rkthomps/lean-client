@@ -9,7 +9,6 @@ from tests.util import INSTR_PROJ_LOC
 
 def test_parallel_clients() -> None:
     NUM_CLIENTS = 2
-    uri = INSTR_PROJ_LOC.resolve().as_uri()
     file = "LeanInstrProj/TheoremRanges.lean"
     file_uri = (INSTR_PROJ_LOC / file).resolve().as_uri()
     file_contents = (INSTR_PROJ_LOC / file).read_text()

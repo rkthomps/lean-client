@@ -7,13 +7,12 @@ It would likely be better to integrate them into the language server
 """
 
 import json
-from typing import Any
 from pathlib import Path
 import subprocess
 
 from pydantic import BaseModel
 
-from lean_client.client import Range, LeanClient, TheoremInfo
+from lean_client.client import TheoremInfo, ProofSampleArguments
 
 
 def run_command(
@@ -58,6 +57,7 @@ class HeartbeatCommand(BaseModel):
 class TheoremInfoCommand(BaseModel):
     workspace: Path  # Root of Lean project
     rel_filepath: Path  # Relative to workspace root
+    samples: list[ProofSampleArguments]
 
     def __post_init__(self):
         assert self.workspace.exists()
@@ -73,7 +73,10 @@ class TheoremInfoCommand(BaseModel):
 
     @property
     def command_args(self) -> list[str]:
-        return [str(self.rel_filepath)]
+        args = [str(self.rel_filepath)]
+        for sample in self.samples:
+            args.extend(["--sample", json.dumps(sample.to_lean_dict())])
+        return args
 
     def run(self) -> list[TheoremInfo] | CommandError:
         result = run_command(self.workspace, self.command_name, self.command_args)

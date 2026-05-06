@@ -4,11 +4,10 @@ from typing import Optional
 from tests.util import INSTR_PROJ_LOC, NO_INSTR_PROJ_LOC, BuildError
 from pathlib import Path
 
-from lean_client.client import Range, Position
+from lean_client.client import Range, ProofSampleArguments
 from lean_client.instruments import (
     HeartbeatCommand,
     TheoremInfoCommand,
-    TheoremInfo,
     CommandError,
 )
 
@@ -31,9 +30,19 @@ def test_theorem_info(build_projects: Optional[BuildError]) -> None:
     if build_projects is not None:
         pytest.fail(str(build_projects))
 
+    samples = [
+        ProofSampleArguments.depth(0.25),
+        ProofSampleArguments.depth(0.5),
+        ProofSampleArguments.depth(0.75),
+        ProofSampleArguments.breadth(0.25),
+        ProofSampleArguments.breadth(0.5),
+        ProofSampleArguments.breadth(0.75),
+    ]
+
     cmd = TheoremInfoCommand(
         workspace=INSTR_PROJ_LOC,
         rel_filepath=Path("LeanInstrProj/TheoremRanges.lean"),
+        samples=samples,
     )
 
     result = cmd.run()

@@ -6,11 +6,12 @@ from pydantic import BaseModel
 
 from lean_client.harness import Harness, ProofSucceededResult, ProofFailedResult
 
-from tests.util import INSTR_PROJ_LOC, NO_INSTR_PROJ_LOC, BuildError
+from tests.util import INSTR_PROJ_LOC, BuildError
 
 
 class Foo(BaseModel):
     result: ProofSucceededResult | ProofFailedResult
+
 
 def test_serialize_proof_result() -> None:
     result = Foo(result=ProofFailedResult(diagnostics=[]))
@@ -115,5 +116,6 @@ def test_proof_bat_result(build_projects: Optional[BuildError]) -> None:
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.DEBUG)
     test_proof_bat_result(None)
