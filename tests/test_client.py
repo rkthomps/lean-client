@@ -12,6 +12,8 @@ from lean_client.client import (
     WaitForDiagnosticsRequest,
     WaitForDiagnosticsResponse,
     FindTheoremsRequest,
+    FindDeclsRequest,
+    FindDeclsResponse,
     FindTheoremsResponse,
 )
 
@@ -90,6 +92,11 @@ def test_batteries_document_symbol_request(build_projects: Optional[BuildError])
         assert isinstance(response, FindTheoremsResponse)
         assert len(response.theorems) == 1
         assert response.theorems[0].name == "rat_to_float"
+
+        request = FindDeclsRequest(uri=file_uri)
+        response = client.send_request(request)
+        assert isinstance(response, FindDeclsResponse)
+        assert len(response.decls) == 1
 
 
 if __name__ == "__main__":

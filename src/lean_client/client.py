@@ -1,6 +1,6 @@
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Optional, IO
+from typing import Any, Optional, IO, Literal, Union, Annotated
 
 import os
 import re
@@ -14,7 +14,7 @@ import queue
 import logging
 
 from subprocess import TimeoutExpired
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,137 @@ class ProofSample(BaseModel):
         )
 
 
+"""
+inductive DeclInfo where
+  | «abbrev» (name : Name)
+  | «def» (name : Name)
+  | «theorem» (name : Name)
+  | «opaque» (name : Name)
+  | «instance» (name : Option Name)
+  | «axiom» (name : Name)
+  | «example»
+  | «inductive» (name : Name)
+  | «class inductive» (name : Name)
+  | «structure» (name : Name)
+  | «class» (name : Name)
+deriving ToJson, FromJson
+"""
+
+
+class AbbrevDeclInfo(BaseModel):
+    kind: Literal["abbrev"] = "abbrev"
+    name: str
+
+
+class DefDeclInfo(BaseModel):
+    kind: Literal["def"] = "def"
+    name: str
+
+
+class TheoremDeclInfo(BaseModel):
+    kind: Literal["theorem"] = "theorem"
+    name: str
+
+
+class OpaqueDeclInfo(BaseModel):
+    kind: Literal["opaque"] = "opaque"
+    name: str
+
+
+class InstanceDeclInfo(BaseModel):
+    kind: Literal["instance"] = "instance"
+    name: Optional[str]
+
+
+class AxiomDeclInfo(BaseModel):
+    kind: Literal["axiom"] = "axiom"
+    name: str
+
+
+class ExampleDeclInfo(BaseModel):
+    kind: Literal["example"] = "example"
+
+
+class InductiveDeclInfo(BaseModel):
+    kind: Literal["inductive"] = "inductive"
+    name: str
+
+
+class ClassInductiveDeclInfo(BaseModel):
+    kind: Literal["class inductive"] = "class inductive"
+    name: str
+
+
+class StructureDeclInfo(BaseModel):
+    kind: Literal["structure"] = "structure"
+    name: str
+
+
+class ClassDeclInfo(BaseModel):
+    kind: Literal["class"] = "class"
+    name: str
+
+
+DeclInfo = Annotated[
+    Union[
+        AbbrevDeclInfo,
+        DefDeclInfo,
+        TheoremDeclInfo,
+        OpaqueDeclInfo,
+        InstanceDeclInfo,
+        AxiomDeclInfo,
+        ExampleDeclInfo,
+        InductiveDeclInfo,
+        ClassInductiveDeclInfo,
+        StructureDeclInfo,
+        ClassDeclInfo,
+    ],
+    Field(discriminator="kind"),
+]
+
+
+class Decl(BaseModel):
+    range: Range
+    content: str
+    info: DeclInfo
+
+    @classmethod
+    def from_lean_dict(cls, data: Any) -> "Decl":
+        range = Range.model_validate(data["range"])
+        content = data["content"]
+        info_data = data["info"]
+        assert len(info_data) == 1, f"Expected exactly one key in info, got {info_data}"
+        info_kind = next(iter(info_data.keys()))
+        match info_kind:
+            case "abbrev":
+                info = AbbrevDeclInfo.model_validate(info_data["abbrev"])
+            case "def":
+                info = DefDeclInfo.model_validate(info_data["def"])
+            case "theorem":
+                info = TheoremDeclInfo.model_validate(info_data["theorem"])
+            case "opaque":
+                info = OpaqueDeclInfo.model_validate(info_data["opaque"])
+            case "instance":
+                info = InstanceDeclInfo.model_validate(info_data["instance"])
+            case "axiom":
+                info = AxiomDeclInfo.model_validate(info_data["axiom"])
+            case "example":
+                info = ExampleDeclInfo.model_validate(info_data["example"])
+            case "inductive":
+                info = InductiveDeclInfo.model_validate(info_data["inductive"])
+            case "class inductive":
+                info = ClassInductiveDeclInfo.model_validate(
+                    info_data["class inductive"]
+                )
+            case "structure":
+                info = StructureDeclInfo.model_validate(info_data["structure"])
+            case "class":
+                info = ClassDeclInfo.model_validate(info_data["class"])
+            case _:
+                raise ValueError(f"Unknown DeclInfo kind: {info_kind}")
+        return cls(range=range, content=content, info=info)
+
+
 class TheoremInfo(BaseModel):
     name: str
     range: Range
@@ -285,12 +416,29 @@ class FindTheoremsRequest(BaseModel):
         }
 
 
+class FindDeclsRequest(BaseModel):
+    uri: str
+
+    @staticmethod
+    def method() -> str:
+        return "$/lean/findDecls"
+
+    @property
+    def params(self) -> dict[str, Any]:
+        return {
+            "textDocument": {
+                "uri": self.uri,
+            },
+        }
+
+
 Request = (
     InitializeRequest
     | ShutdownRequest
     | PlainGoalRequest
     | WaitForDiagnosticsRequest
     | FindTheoremsRequest
+    | FindDeclsRequest
 )
 
 
@@ -542,6 +690,20 @@ class FindTheoremsResponse(BaseModel):
         )
 
 
+class FindDeclsResponse(BaseModel):
+    id: int
+    decls: list[Decl]
+
+    @classmethod
+    def from_response(cls, json: Any) -> "FindDeclsResponse":
+        id = json["id"]
+        decls = [Decl.from_lean_dict(d) for d in json["result"]["decls"]]
+        return cls(
+            id=id,
+            decls=decls,
+        )
+
+
 class InitializedResponse(BaseModel):
     id: int
 
@@ -598,6 +760,7 @@ Response = (
     | ShutdownResponse
     | WaitForDiagnosticsResponse
     | FindTheoremsResponse
+    | FindDeclsResponse
 )
 
 
@@ -613,6 +776,8 @@ def get_response_ty(request: Request) -> type[Response]:
             return WaitForDiagnosticsResponse
         case FindTheoremsRequest():
             return FindTheoremsResponse
+        case FindDeclsRequest():
+            return FindDeclsResponse
         case _:
             raise ValueError(f"Unknown request type: {type(request)}")
 
