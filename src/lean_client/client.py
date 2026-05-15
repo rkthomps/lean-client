@@ -868,9 +868,15 @@ def get_server_path(workspace: Path) -> Path:
 
 
 class LeanClient:
-    def __init__(self, workspace: Optional[Path], instrument_server: bool = False):
+    def __init__(
+        self,
+        workspace: Optional[Path],
+        instrument_server: bool = False,
+        start_timeout: float = 30.0,
+    ):
         self.workspace = workspace
         self.instrument_server = instrument_server
+        self.start_timeout = start_timeout
         copy_env = os.environ.copy()
         work_dir = workspace if workspace is not None else Path.cwd().resolve()
         if instrument_server:
@@ -1072,10 +1078,16 @@ class LeanClient:
             except Exception:
                 return
 
-    def restart(self):
+    def restart(self) -> "LeanClient":
         logger.info("Restarting Lean client...")
         self.shutdown()
-        self.start(self.work)
+        assert self.workspace is not None, "Workspace must be set to restart client."
+        new_client = LeanClient.start(
+            self.workspace,
+            instrument_server=self.instrument_server,
+            timeout=self.start_timeout,
+        )
+        return new_client
 
     def send_str(self, message: str):
         message_bytes = message.encode("utf-8")
