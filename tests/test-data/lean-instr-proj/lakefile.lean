@@ -5,9 +5,9 @@ open Lake DSL
 package «lean-instr-proj» where
 
 require batteries from git
-  "https://github.com/leanprover-community/batteries" @ "v4.14.0"
+  "https://github.com/leanprover-community/batteries" @ "v4.24.0"
 
-require «llm-instruments» from git "https://github.com/rkthomps/llm-instruments" @ "mod-lsp-4.14"
+require «llm-instruments» from git "https://github.com/rkthomps/llm-instruments" @ "4.24.0"
 -- require «llm-instruments» from "/Users/kyle/research/data-collection/lean-llm-instruments/llm-instruments"
 
 
