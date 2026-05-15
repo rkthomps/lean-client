@@ -869,6 +869,8 @@ def get_server_path(workspace: Path) -> Path:
 
 class LeanClient:
     def __init__(self, workspace: Optional[Path], instrument_server: bool = False):
+        self.workspace = workspace
+        self.instrument_server = instrument_server
         copy_env = os.environ.copy()
         work_dir = workspace if workspace is not None else Path.cwd().resolve()
         if instrument_server:
@@ -1069,6 +1071,11 @@ class LeanClient:
                 return
             except Exception:
                 return
+
+    def restart(self):
+        logger.info("Restarting Lean client...")
+        self.shutdown()
+        self.start(self.work)
 
     def send_str(self, message: str):
         message_bytes = message.encode("utf-8")
