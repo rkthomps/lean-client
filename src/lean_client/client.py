@@ -272,6 +272,14 @@ class Decl(BaseModel):
     content: str
     info: DeclInfo
 
+    @property
+    def name(self) -> Optional[str]:
+        match self.info:
+            case ExampleDeclInfo():
+                return None
+            case _:
+                return self.info.name
+
     @classmethod
     def from_lean_dict(cls, data: Any) -> "Decl":
         range = Range.model_validate(data["range"])
