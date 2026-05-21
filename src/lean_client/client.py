@@ -19,6 +19,10 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 
+class LeanClientError(Exception):
+    pass
+
+
 class Position(BaseModel):
     line: int
     character: int
@@ -1028,6 +1032,13 @@ class LeanClient:
             if "method" in msg:
                 return read_notification(msg)
             elif response_ty is not None and "id" in msg:
+                if "error" in msg:
+                    logger.error(
+                        f"Received error response: {msg['error']['message']}; Code {msg['error']['code']}"
+                    )
+                    raise LeanClientError(
+                        f"Error response received: {msg['error']['message']}"
+                    )
                 return response_ty.from_response(msg)
             else:
                 logger.warning(
